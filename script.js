@@ -1,4 +1,3 @@
-script.js
 // PDF.js 워커 설정
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
 
