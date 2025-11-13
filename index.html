@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 분할 프로그램</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📄 PDF 분할 프로그램</h1>
+            <p>PDF 파일을 업로드하여 원하는 페이지로 분할하세요</p>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link active">PDF 분할</a>
+                <a href="merge.html" class="nav-link">PDF 병합</a>
+            </div>
+        </header>
+
+        <main>
+            <!-- 파일 업로드 섹션 -->
+            <section class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInput" accept=".pdf" hidden>
+                    <div class="upload-content">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p class="upload-text">PDF 파일을 드래그하거나 클릭하여 업로드</p>
+                        <p class="upload-hint">또는 여기를 클릭하세요</p>
+                    </div>
+                </div>
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <div class="file-details">
+                        <span class="file-name" id="fileName"></span>
+                        <span class="file-pages" id="filePages"></span>
+                        <button class="btn-remove" id="removeFile">×</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PDF 미리보기 및 분할 섹션 -->
+            <section class="preview-section" id="previewSection" style="display: none;">
+                <!-- 사용법 안내 박스 -->
+                <div class="usage-guide">
+                    <div class="usage-guide-header">
+                        <h3>📖 사용법</h3>
+                        <button class="btn-close-guide" id="closeGuideBtn">×</button>
+                    </div>
+                    <div class="usage-guide-content">
+                        <ol>
+                            <li><strong>시작 페이지</strong> 버튼을 클릭한 후 왼쪽 썸네일에서 시작할 페이지를 선택하세요</li>
+                            <li><strong>마지막 페이지</strong> 버튼을 클릭한 후 끝낼 페이지를 선택하세요</li>
+                            <li>선택한 범위를 확인하고 <strong>범위 추가</strong> 버튼을 클릭하세요</li>
+                            <li>여러 범위를 추가한 후 <strong>분할 실행</strong> 버튼으로 PDF를 분할하세요</li>
+                            <li>오른쪽 큰 미리보기에서 페이지 번호를 입력해 특정 페이지로 이동할 수 있습니다</li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="preview-controls">
+                    <h2>페이지 선택</h2>
+                    <div class="control-buttons">
+                        <button class="btn-select-start" id="selectStartBtn">시작 페이지</button>
+                        <button class="btn-select-end" id="selectEndBtn">마지막 페이지</button>
+                        <button class="btn-clear-selection" id="clearSelectionBtn">선택 초기화</button>
+                    </div>
+                    <div class="selection-info" id="selectionInfo">
+                        <span>선택된 범위: <strong id="selectedRange">없음</strong></span>
+                    </div>
+                    <div class="split-actions">
+                        <button class="btn-primary" id="addRangeBtn">범위 추가</button>
+                    </div>
+                    
+                    <!-- 추가된 범위 목록 -->
+                    <div class="ranges-list" id="rangesList" style="display: none;">
+                        <div class="ranges-list-header">
+                            <h3>추가된 분할 범위</h3>
+                            <button class="btn-primary" id="splitRangesBtn" style="display: none;">분할 실행</button>
+                        </div>
+                        <ul id="rangesListItems"></ul>
+                    </div>
+                </div>
+                
+                <div class="preview-container">
+                    <!-- 왼쪽: 작은 미리보기 리스트 -->
+                    <div class="thumbnail-list" id="thumbnailList">
+                        <!-- 페이지 썸네일이 여기에 동적으로 생성됩니다 -->
+                    </div>
+                    
+                    <!-- 오른쪽: 큰 미리보기 -->
+                    <div class="large-preview">
+                        <div class="preview-header">
+                            <span id="currentPageInfo">페이지를 선택하세요</span>
+                            <div class="preview-nav">
+                                <button class="btn-nav" id="prevPageBtn">◀ 이전</button>
+                                <div class="page-jump">
+                                    <input type="number" id="pageJumpInput" min="1" placeholder="페이지" class="page-input">
+                                    <button class="btn-nav" id="goToPageBtn">이동</button>
+                                </div>
+                                <button class="btn-nav" id="nextPageBtn">다음 ▶</button>
+                            </div>
+                        </div>
+                        <div class="preview-canvas-container">
+                            <canvas id="previewCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 결과 섹션 -->
+            <section class="result-section" id="resultSection" style="display: none;">
+                <h2>분할 결과</h2>
+                <div class="result-list" id="resultList"></div>
+                <div class="result-actions">
+                    <button class="btn-secondary" id="splitAgain">다시 분할하기</button>
+                    <button class="btn-primary" id="downloadAll">전체 다운로드</button>
+                </div>
+            </section>
+
+            <!-- 히스토리 섹션 -->
+            <section class="history-section" id="historySection" style="display: none;">
+                <h2>분할 히스토리</h2>
+                <div class="history-list" id="historyList"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 분할 완료 팝업 -->
+    <div class="modal-overlay" id="completeModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✅ 분할 완료</h3>
+                <button class="btn-close-modal" id="closeCompleteModalBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <p>PDF 분할이 완료되었습니다!</p>
+                <div class="modal-info">
+                    <div class="modal-info-item">
+                        <strong>분할된 파일:</strong> <span id="completeFileCount">0</span>개
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" id="confirmCompleteBtn">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 복구 확인 팝업 -->
+    <div class="modal-overlay" id="restoreModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>분할 설정 복구</h3>
+                <button class="btn-close-modal" id="closeModalBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <p>이 분할 설정으로 복구하시겠습니까?</p>
+                <div class="modal-info" id="modalInfo"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelRestoreBtn">취소</button>
+                <button class="btn-primary" id="confirmRestoreBtn">복구</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

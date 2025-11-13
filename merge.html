@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 병합 프로그램</title>
+    <link rel="stylesheet" href="merge-style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 PDF 병합 프로그램</h1>
+            <p>여러 PDF 파일을 하나로 병합하세요</p>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">PDF 분할</a>
+                <a href="merge.html" class="nav-link active">PDF 병합</a>
+            </div>
+        </header>
+
+        <main>
+            <!-- 파일 업로드 섹션 -->
+            <section class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInput" accept=".pdf" multiple hidden>
+                    <div class="upload-content">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p class="upload-text">PDF 파일을 드래그하거나 클릭하여 업로드</p>
+                        <p class="upload-hint">여러 파일을 한 번에 선택할 수 있습니다</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 파일 목록 및 순서 지정 섹션 -->
+            <section class="files-section" id="filesSection" style="display: none;">
+                <!-- 사용법 안내 박스 -->
+                <div class="usage-guide">
+                    <div class="usage-guide-header">
+                        <h3>📖 사용법</h3>
+                        <button class="btn-close-guide" id="closeGuideBtn">×</button>
+                    </div>
+                    <div class="usage-guide-content">
+                        <ol>
+                            <li>여러 PDF 파일을 업로드하세요 (드래그 앤 드롭 또는 클릭)</li>
+                            <li>파일 목록에서 파일을 <strong>드래그하여 순서를 변경</strong>할 수 있습니다</li>
+                            <li>파일을 클릭하면 미리보기에서 첫 페이지를 확인할 수 있습니다</li>
+                            <li>원하는 순서로 정렬한 후 <strong>병합 실행</strong> 버튼을 클릭하세요</li>
+                            <li>병합된 PDF 파일을 다운로드할 수 있습니다</li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="section-header">
+                    <h2>업로드된 파일 목록</h2>
+                    <p class="section-hint">파일을 드래그하여 순서를 변경할 수 있습니다</p>
+                </div>
+                <div class="files-list" id="filesList">
+                    <!-- 파일 목록이 여기에 동적으로 생성됩니다 -->
+                </div>
+                
+                <div class="merge-actions">
+                    <button class="btn-secondary" id="clearAllBtn">전체 삭제</button>
+                    <button class="btn-primary" id="mergeBtn">병합 실행</button>
+                </div>
+            </section>
+
+            <!-- 결과 섹션 -->
+            <section class="result-section" id="resultSection" style="display: none;">
+                <h2>병합 완료</h2>
+                <div class="result-info">
+                    <div class="result-item">
+                        <div class="result-item-info">
+                            <div class="result-item-name" id="resultFileName">merged.pdf</div>
+                            <div class="result-item-pages" id="resultPages">총 0페이지</div>
+                        </div>
+                        <div class="result-item-actions">
+                            <button class="download-btn" id="downloadBtn">다운로드</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="result-actions">
+                    <button class="btn-secondary" id="mergeAgainBtn">다시 병합하기</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 파일 미리보기 팝업 -->
+    <div class="modal-overlay" id="previewModal" style="display: none;">
+        <div class="modal-content preview-modal-content">
+            <div class="modal-header">
+                <h3 id="previewModalFileName">파일 미리보기</h3>
+                <button class="btn-close-modal" id="closePreviewModalBtn">×</button>
+            </div>
+            <div class="modal-body preview-modal-body">
+                <div class="preview-container-large">
+                    <canvas id="previewModalCanvas"></canvas>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" id="closePreviewBtn">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="pdf.min.js"></script>
+    <script src="merge-script.js"></script>
+</body>
+</html>

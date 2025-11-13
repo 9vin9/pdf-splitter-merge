@@ -1,0 +1,1198 @@
+* {
+
+margin: 0;
+
+padding: 0;
+
+box-sizing: border-box;
+
+}
+
+
+
+body {
+
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+min-height: 100vh;
+
+padding: 20px;
+
+color: #333;
+
+}
+
+
+
+.container {
+
+max-width: 1400px;
+
+margin: 0 auto;
+
+background: white;
+
+border-radius: 20px;
+
+box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+
+overflow: hidden;
+
+}
+
+
+
+header {
+
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+color: white;
+
+padding: 40px;
+
+text-align: center;
+
+}
+
+
+
+header h1 {
+
+font-size: 2.5em;
+
+margin-bottom: 10px;
+
+}
+
+
+
+header p {
+
+font-size: 1.1em;
+
+opacity: 0.9;
+
+margin-bottom: 20px;
+
+}
+
+
+
+.nav-links {
+
+display: flex;
+
+justify-content: center;
+
+gap: 15px;
+
+margin-top: 20px;
+
+}
+
+
+
+.nav-link {
+
+padding: 10px 25px;
+
+background: rgba(255, 255, 255, 0.2);
+
+color: white;
+
+text-decoration: none;
+
+border-radius: 8px;
+
+font-weight: 500;
+
+transition: all 0.3s ease;
+
+}
+
+
+
+.nav-link:hover {
+
+background: rgba(255, 255, 255, 0.3);
+
+transform: translateY(-2px);
+
+}
+
+
+
+.nav-link.active {
+
+background: rgba(255, 255, 255, 0.9);
+
+color: #667eea;
+
+}
+
+
+
+main {
+
+padding: 40px;
+
+}
+
+
+
+section {
+
+margin-bottom: 30px;
+
+}
+
+
+
+/* 업로드 영역 */
+
+.upload-section {
+
+margin-bottom: 40px;
+
+}
+
+
+
+.upload-area {
+
+border: 3px dashed #667eea;
+
+border-radius: 15px;
+
+padding: 60px 20px;
+
+text-align: center;
+
+cursor: pointer;
+
+transition: all 0.3s ease;
+
+background: #f8f9ff;
+
+}
+
+
+
+.upload-area:hover {
+
+border-color: #764ba2;
+
+background: #f0f2ff;
+
+transform: translateY(-2px);
+
+}
+
+
+
+.upload-area.dragover {
+
+border-color: #764ba2;
+
+background: #e8ebff;
+
+transform: scale(1.02);
+
+}
+
+
+
+.upload-icon {
+
+width: 64px;
+
+height: 64px;
+
+margin: 0 auto 20px;
+
+stroke-width: 2;
+
+color: #667eea;
+
+}
+
+
+
+.upload-content p {
+
+margin: 10px 0;
+
+font-size: 1.1em;
+
+}
+
+
+
+.upload-text {
+
+font-weight: 600;
+
+color: #333;
+
+}
+
+
+
+.upload-hint {
+
+color: #666;
+
+font-size: 0.9em;
+
+}
+
+
+
+/* 파일 목록 섹션 */
+
+.files-section {
+
+background: #f8f9ff;
+
+padding: 30px;
+
+border-radius: 15px;
+
+border: 2px solid #e0e4ff;
+
+}
+
+
+
+/* 사용법 안내 박스 */
+
+.usage-guide {
+
+background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+
+border: 2px solid #ffc107;
+
+border-radius: 12px;
+
+padding: 20px;
+
+margin-bottom: 25px;
+
+box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
+
+}
+
+
+
+.usage-guide-header {
+
+display: flex;
+
+justify-content: space-between;
+
+align-items: center;
+
+margin-bottom: 15px;
+
+}
+
+
+
+.usage-guide-header h3 {
+
+margin: 0;
+
+color: #333;
+
+font-size: 1.3em;
+
+}
+
+
+
+.btn-close-guide {
+
+background: transparent;
+
+border: none;
+
+font-size: 24px;
+
+color: #666;
+
+cursor: pointer;
+
+width: 30px;
+
+height: 30px;
+
+display: flex;
+
+align-items: center;
+
+justify-content: center;
+
+border-radius: 50%;
+
+transition: all 0.3s ease;
+
+}
+
+
+
+.btn-close-guide:hover {
+
+background: rgba(0, 0, 0, 0.1);
+
+color: #333;
+
+}
+
+
+
+.usage-guide-content {
+
+color: #333;
+
+}
+
+
+
+.usage-guide-content ol {
+
+margin: 0;
+
+padding-left: 25px;
+
+}
+
+
+
+.usage-guide-content li {
+
+margin-bottom: 10px;
+
+line-height: 1.6;
+
+}
+
+
+
+.usage-guide-content li:last-child {
+
+margin-bottom: 0;
+
+}
+
+
+
+.usage-guide-content strong {
+
+color: #764ba2;
+
+font-weight: 600;
+
+}
+
+
+
+.section-header {
+
+margin-bottom: 20px;
+
+}
+
+
+
+.section-header h2 {
+
+margin-bottom: 8px;
+
+color: #333;
+
+}
+
+
+
+.section-hint {
+
+color: #666;
+
+font-size: 0.9em;
+
+}
+
+
+
+.files-list {
+
+margin-bottom: 25px;
+
+}
+
+
+
+/* 파일 미리보기 섹션 */
+
+.preview-section {
+
+background: white;
+
+border-radius: 10px;
+
+padding: 20px;
+
+margin-bottom: 25px;
+
+border: 2px solid #e0e4ff;
+
+}
+
+
+
+.preview-header {
+
+display: flex;
+
+justify-content: space-between;
+
+align-items: center;
+
+margin-bottom: 20px;
+
+padding-bottom: 15px;
+
+border-bottom: 2px solid #e0e4ff;
+
+}
+
+
+
+.preview-header h3 {
+
+margin: 0;
+
+color: #333;
+
+font-size: 1.2em;
+
+}
+
+
+
+.preview-header span {
+
+color: #666;
+
+font-size: 0.9em;
+
+word-break: break-all;
+
+}
+
+
+
+.preview-container {
+
+display: flex;
+
+justify-content: center;
+
+align-items: flex-start;
+
+overflow: auto;
+
+background: #f5f5f5;
+
+border-radius: 8px;
+
+padding: 20px;
+
+min-height: 300px;
+
+max-height: 600px;
+
+}
+
+
+
+#previewCanvas {
+
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+border-radius: 5px;
+
+background: white;
+
+max-width: 100%;
+
+height: auto;
+
+display: block;
+
+}
+
+
+
+.file-item {
+
+display: flex;
+
+align-items: center;
+
+gap: 15px;
+
+padding: 15px;
+
+background: white;
+
+border-radius: 10px;
+
+margin-bottom: 12px;
+
+border: 2px solid #e0e4ff;
+
+transition: all 0.3s ease;
+
+cursor: pointer;
+
+}
+
+
+
+.file-item:hover {
+
+border-color: #667eea;
+
+box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+
+transform: translateX(5px);
+
+background: #f8f9ff;
+
+}
+
+
+
+.file-item.dragging {
+
+opacity: 0.5;
+
+border-color: #764ba2;
+
+}
+
+
+
+.file-item-handle {
+
+display: flex;
+
+align-items: center;
+
+color: #667eea;
+
+cursor: grab;
+
+}
+
+
+
+.file-item-handle:active {
+
+cursor: grabbing;
+
+}
+
+
+
+.drag-handle {
+
+width: 20px;
+
+height: 20px;
+
+stroke-width: 2;
+
+}
+
+
+
+.file-thumbnail-container {
+
+width: 80px;
+
+height: 100px;
+
+display: flex;
+
+align-items: center;
+
+justify-content: center;
+
+background: #f5f5f5;
+
+border-radius: 5px;
+
+border: 1px solid #ddd;
+
+flex-shrink: 0;
+
+overflow: hidden;
+
+}
+
+
+
+.file-thumbnail {
+
+max-width: 100%;
+
+max-height: 100%;
+
+width: auto;
+
+height: auto;
+
+border-radius: 3px;
+
+box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+transition: transform 0.2s ease;
+
+}
+
+
+
+.file-thumbnail:hover {
+
+transform: scale(1.05);
+
+}
+
+
+
+.file-item-info {
+
+flex: 1;
+
+min-width: 0;
+
+}
+
+
+
+.file-item-name {
+
+font-weight: 600;
+
+color: #333;
+
+margin-bottom: 5px;
+
+word-break: break-all;
+
+}
+
+
+
+.file-item-pages {
+
+color: #666;
+
+font-size: 0.9em;
+
+}
+
+
+
+.file-item-number {
+
+width: 35px;
+
+height: 35px;
+
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+color: white;
+
+border-radius: 50%;
+
+display: flex;
+
+align-items: center;
+
+justify-content: center;
+
+font-weight: 600;
+
+flex-shrink: 0;
+
+}
+
+
+
+.btn-remove-file {
+
+background: #ff4757;
+
+color: white;
+
+border: none;
+
+width: 30px;
+
+height: 30px;
+
+border-radius: 50%;
+
+cursor: pointer;
+
+font-size: 20px;
+
+display: flex;
+
+align-items: center;
+
+justify-content: center;
+
+transition: all 0.3s ease;
+
+flex-shrink: 0;
+
+}
+
+
+
+.btn-remove-file:hover {
+
+background: #ff3838;
+
+transform: rotate(90deg) scale(1.1);
+
+}
+
+
+
+.merge-actions {
+
+display: flex;
+
+gap: 15px;
+
+justify-content: flex-end;
+
+flex-wrap: wrap;
+
+}
+
+
+
+.btn-primary {
+
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+color: white;
+
+border: none;
+
+padding: 12px 30px;
+
+border-radius: 8px;
+
+font-size: 1em;
+
+font-weight: 600;
+
+cursor: pointer;
+
+transition: all 0.3s ease;
+
+}
+
+
+
+.btn-primary:hover:not(:disabled) {
+
+transform: translateY(-2px);
+
+box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+
+}
+
+
+
+.btn-primary:disabled {
+
+opacity: 0.6;
+
+cursor: not-allowed;
+
+}
+
+
+
+.btn-primary:active:not(:disabled) {
+
+transform: translateY(0);
+
+}
+
+
+
+.btn-secondary {
+
+background: #6c757d;
+
+color: white;
+
+border: none;
+
+padding: 12px 30px;
+
+border-radius: 8px;
+
+font-size: 1em;
+
+font-weight: 600;
+
+cursor: pointer;
+
+transition: all 0.3s ease;
+
+}
+
+
+
+.btn-secondary:hover {
+
+background: #5a6268;
+
+transform: translateY(-2px);
+
+}
+
+
+
+/* 결과 섹션 */
+
+.result-section {
+
+background: #f0fff4;
+
+padding: 30px;
+
+border-radius: 15px;
+
+border: 2px solid #c3e6cb;
+
+}
+
+
+
+.result-section h2 {
+
+margin-bottom: 20px;
+
+color: #333;
+
+}
+
+
+
+.result-info {
+
+margin-bottom: 20px;
+
+}
+
+
+
+.result-item {
+
+display: flex;
+
+justify-content: space-between;
+
+align-items: center;
+
+padding: 20px;
+
+background: white;
+
+border-radius: 10px;
+
+border: 2px solid #c3e6cb;
+
+flex-wrap: wrap;
+
+gap: 15px;
+
+}
+
+
+
+.result-item-info {
+
+flex: 1;
+
+}
+
+
+
+.result-item-name {
+
+font-weight: 600;
+
+font-size: 1.2em;
+
+margin-bottom: 8px;
+
+color: #333;
+
+}
+
+
+
+.result-item-pages {
+
+color: #666;
+
+font-size: 1em;
+
+}
+
+
+
+.result-item-actions {
+
+display: flex;
+
+gap: 10px;
+
+}
+
+
+
+.download-btn {
+
+background: #28a745;
+
+color: white;
+
+border: none;
+
+padding: 12px 30px;
+
+border-radius: 8px;
+
+font-size: 1em;
+
+font-weight: 600;
+
+cursor: pointer;
+
+transition: all 0.3s ease;
+
+}
+
+
+
+.download-btn:hover {
+
+background: #218838;
+
+transform: translateY(-2px);
+
+box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+
+}
+
+
+
+.result-actions {
+
+display: flex;
+
+gap: 15px;
+
+justify-content: center;
+
+}
+
+
+
+/* 미리보기 팝업 모달 */
+
+.preview-modal-content {
+
+max-width: 90%;
+
+max-height: 90vh;
+
+width: auto;
+
+}
+
+
+
+.preview-modal-body {
+
+padding: 20px;
+
+overflow: auto;
+
+max-height: calc(90vh - 150px);
+
+}
+
+
+
+.preview-container-large {
+
+display: flex;
+
+justify-content: center;
+
+align-items: flex-start;
+
+background: #f5f5f5;
+
+border-radius: 8px;
+
+padding: 20px;
+
+min-height: 400px;
+
+}
+
+
+
+#previewModalCanvas {
+
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+border-radius: 5px;
+
+background: white;
+
+max-width: 100%;
+
+height: auto;
+
+display: block;
+
+}
+
+
+
+/* 빈 상태 메시지 */
+
+.empty-state {
+
+text-align: center;
+
+padding: 40px;
+
+color: #666;
+
+}
+
+
+
+.empty-state-icon {
+
+font-size: 4em;
+
+margin-bottom: 20px;
+
+}
+
+
+
+/* 반응형 디자인 */
+
+@media (max-width: 768px) {
+
+header h1 {
+
+font-size: 2em;
+
+}
+
+
+
+main {
+
+padding: 20px;
+
+}
+
+
+
+.upload-area {
+
+padding: 40px 15px;
+
+}
+
+
+
+.file-item {
+
+flex-wrap: wrap;
+
+}
+
+
+
+.file-item-number {
+
+order: -1;
+
+}
+
+
+
+.merge-actions {
+
+flex-direction: column;
+
+}
+
+
+
+.btn-primary,
+
+.btn-secondary {
+
+width: 100%;
+
+}
+
+
+.result-item {
+
+flex-direction: column;
+
+align-items: stretch;
+
+}
+
+
+.result-item-actions {
+
+width: 100%;
+
+}
+
+
+.download-btn {
+
+width: 100%;
+
+}
+
+}
