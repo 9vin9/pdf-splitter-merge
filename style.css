@@ -326,6 +326,49 @@ section {
     color: #667eea;
 }
 
+/* 페이지 번호 직접 입력 */
+.page-range-input {
+    margin: 20px 0;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    border: 2px solid #e0e4ff;
+}
+
+.page-range-input h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.1em;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.input-group label {
+    font-weight: 500;
+    color: #333;
+    white-space: nowrap;
+}
+
+.page-range-input-field {
+    width: 100px;
+    padding: 10px 12px;
+    border: 2px solid #667eea;
+    border-radius: 5px;
+    font-size: 1em;
+    text-align: center;
+}
+
+.page-range-input-field:focus {
+    outline: none;
+    border-color: #764ba2;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
 .split-actions {
     display: flex;
     gap: 15px;
@@ -913,5 +956,23 @@ section {
     .btn-select-end,
     .btn-clear-selection {
         width: 100%;
+    }
+    
+    .input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .input-group label {
+        margin-bottom: 5px;
+    }
+    
+    .page-range-input-field {
+        width: 100%;
+    }
+    
+    .input-group .btn-primary {
+        width: 100%;
+        margin-top: 10px;
     }
 }

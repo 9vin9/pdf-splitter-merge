@@ -53,6 +53,9 @@ const completeModal = document.getElementById('completeModal');
 const closeCompleteModalBtn = document.getElementById('closeCompleteModalBtn');
 const confirmCompleteBtn = document.getElementById('confirmCompleteBtn');
 const completeFileCount = document.getElementById('completeFileCount');
+const startPageInput = document.getElementById('startPageInput');
+const endPageInput = document.getElementById('endPageInput');
+const addRangeByInputBtn = document.getElementById('addRangeByInputBtn');
 
 let restoreHistoryItem = null;
 
@@ -89,6 +92,7 @@ clearSelectionBtn.addEventListener('click', () => {
 });
 
 addRangeBtn.addEventListener('click', handleAddRange);
+addRangeByInputBtn.addEventListener('click', handleAddRangeByInput);
 splitRangesBtn.addEventListener('click', handleSplitRanges);
 splitAgainBtn.addEventListener('click', handleSplitAgain);
 downloadAllBtn.addEventListener('click', handleDownloadAll);
@@ -139,6 +143,23 @@ pageJumpInput.addEventListener('keypress', (e) => {
         goToPage();
     }
 });
+
+// 입력 필드에서 Enter 키로 범위 추가
+if (startPageInput) {
+    startPageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            endPageInput.focus();
+        }
+    });
+}
+
+if (endPageInput) {
+    endPageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            handleAddRangeByInput();
+        }
+    });
+}
 
 // 페이지 이동 함수
 function goToPage() {
@@ -235,6 +256,14 @@ async function loadPdfFile(file) {
         updatePageJumpInput();
         updateSelectionButtons();
         updateSelectionInfo();
+        
+        // 입력 필드 최대값 설정
+        if (startPageInput) {
+            startPageInput.max = totalPages;
+        }
+        if (endPageInput) {
+            endPageInput.max = totalPages;
+        }
     } catch (error) {
         console.error('PDF 로드 오류:', error);
         alert('PDF 파일을 로드하는 중 오류가 발생했습니다.');
@@ -434,6 +463,65 @@ function handleAddRange() {
     selectionEnd = null;
     updateSelectionInfo();
     updateThumbnails();
+}
+
+// 입력 필드로 범위 추가
+function handleAddRangeByInput() {
+    const startPage = parseInt(startPageInput.value);
+    const endPage = parseInt(endPageInput.value);
+    
+    // 유효성 검사
+    if (!startPage || !endPage) {
+        alert('시작 페이지와 끝 페이지를 모두 입력해주세요.');
+        return;
+    }
+    
+    if (startPage < 1 || endPage < 1) {
+        alert('페이지 번호는 1 이상이어야 합니다.');
+        return;
+    }
+    
+    if (startPage > totalPages || endPage > totalPages) {
+        alert(`페이지 번호는 총 페이지 수(${totalPages}페이지)를 초과할 수 없습니다.`);
+        return;
+    }
+    
+    if (startPage > endPage) {
+        alert('시작 페이지는 끝 페이지보다 작거나 같아야 합니다.');
+        return;
+    }
+    
+    // 중복 체크
+    const isDuplicate = splitRanges.some(range => 
+        range.start === startPage && range.end === endPage
+    );
+    
+    if (isDuplicate) {
+        alert('이미 추가된 범위입니다.');
+        return;
+    }
+    
+    // 범위 추가
+    splitRanges.push({ start: startPage, end: endPage });
+    updateRangesList();
+    rangesList.style.display = 'block';
+    splitRangesBtn.style.display = 'inline-block';
+    
+    // 입력 필드 초기화
+    startPageInput.value = '';
+    endPageInput.value = '';
+    
+    // 선택 상태도 업데이트 (시각적 피드백)
+    selectionStart = startPage;
+    selectionEnd = endPage;
+    updateSelectionInfo();
+    updateThumbnails();
+    
+    // 해당 페이지로 스크롤
+    const thumbnail = thumbnailList.querySelector(`[data-page="${startPage}"]`);
+    if (thumbnail) {
+        thumbnail.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 }
 
 // 범위 목록 업데이트
