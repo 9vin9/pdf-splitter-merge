@@ -1,829 +1,513 @@
-// PDF.js 워커 설정
+// ── PDF.js 설정 ──
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
 
-// 전역 변수
-let currentPdfDoc = null;
-let currentPdfBytes = null;
-let pdfJsDoc = null; // PDF.js 문서
-let totalPages = 0;
-let splitRanges = [];
-let splitResults = [];
-let splitHistory = [];
+// ── 상태 ──
+let pdfDoc = null;        // pdf-lib
+let pdfJs  = null;        // pdf.js
+let totalPages  = 0;
 let currentPage = 1;
-let selectionStart = null;
-let selectionEnd = null;
-let selectionMode = null; // 'start' or 'end'
+let origName    = '';
+let selStart    = null;
+let selEnd      = null;
+let ranges      = [];     // [{start, end}]
+let results     = [];     // [{name, url, blob, range}]
+let history     = [];
 
-// DOM 요소
-const uploadArea = document.getElementById('uploadArea');
-const fileInput = document.getElementById('fileInput');
-const fileInfo = document.getElementById('fileInfo');
-const fileName = document.getElementById('fileName');
-const filePages = document.getElementById('filePages');
-const removeFile = document.getElementById('removeFile');
-const previewSection = document.getElementById('previewSection');
-const thumbnailList = document.getElementById('thumbnailList');
-const previewCanvas = document.getElementById('previewCanvas');
-const currentPageInfo = document.getElementById('currentPageInfo');
-const prevPageBtn = document.getElementById('prevPageBtn');
-const nextPageBtn = document.getElementById('nextPageBtn');
-const pageJumpInput = document.getElementById('pageJumpInput');
-const goToPageBtn = document.getElementById('goToPageBtn');
-const selectStartBtn = document.getElementById('selectStartBtn');
-const selectEndBtn = document.getElementById('selectEndBtn');
-const clearSelectionBtn = document.getElementById('clearSelectionBtn');
-const selectedRange = document.getElementById('selectedRange');
-const addRangeBtn = document.getElementById('addRangeBtn');
-const splitRangesBtn = document.getElementById('splitRangesBtn');
-const rangesList = document.getElementById('rangesList');
-const rangesListItems = document.getElementById('rangesListItems');
-const resultSection = document.getElementById('resultSection');
-const resultList = document.getElementById('resultList');
-const splitAgainBtn = document.getElementById('splitAgain');
-const downloadAllBtn = document.getElementById('downloadAll');
-const historySection = document.getElementById('historySection');
-const historyList = document.getElementById('historyList');
-const closeGuideBtn = document.getElementById('closeGuideBtn');
-const restoreModal = document.getElementById('restoreModal');
-const closeModalBtn = document.getElementById('closeModalBtn');
-const cancelRestoreBtn = document.getElementById('cancelRestoreBtn');
-const confirmRestoreBtn = document.getElementById('confirmRestoreBtn');
-const modalInfo = document.getElementById('modalInfo');
-const completeModal = document.getElementById('completeModal');
-const closeCompleteModalBtn = document.getElementById('closeCompleteModalBtn');
-const confirmCompleteBtn = document.getElementById('confirmCompleteBtn');
-const completeFileCount = document.getElementById('completeFileCount');
-const startPageInput = document.getElementById('startPageInput');
-const endPageInput = document.getElementById('endPageInput');
-const addRangeByInputBtn = document.getElementById('addRangeByInputBtn');
+// ── DOM ──
+const $ = id => document.getElementById(id);
+const uploadArea   = $('uploadArea');
+const fileInput    = $('fileInput');
+const fileInfoBar  = $('fileInfoBar');
+const fileNameEl   = $('fileName');
+const filePagesEl  = $('filePages');
+const removeFileBtn= $('removeFileBtn');
+const editorSection= $('editorSection');
+const thumbList    = $('thumbList');
+const previewCanvas= $('previewCanvas');
+const pageInfoTxt  = $('pageInfoTxt');
+const prevBtn      = $('prevBtn');
+const nextBtn      = $('nextBtn');
+const pageJumpInput= $('pageJumpInput');
+const goBtn        = $('goBtn');
+const startInput   = $('startInput');
+const endInput     = $('endInput');
+const addRangeBtn  = $('addRangeBtn');
+const clearSelBtn  = $('clearSelBtn');
+const selDot       = $('selDot');
+const selText      = $('selText');
+const rangesList   = $('rangesList');
+const rangeCountBadge = $('rangeCountBadge');
+const splitBtn     = $('splitBtn');
+const chipsRow     = $('chipsRow');
+const rangeBar     = $('rangeBar');
+const resultSection= $('resultSection');
+const resultList   = $('resultList');
+const splitAgainBtn= $('splitAgainBtn');
+const downloadAllBtn= $('downloadAllBtn');
+const historySection= $('historySection');
+const historyList  = $('historyList');
+const restoreModal = $('restoreModal');
+const closeRestoreBtn= $('closeRestoreBtn');
+const cancelRestoreBtn= $('cancelRestoreBtn');
+const confirmRestoreBtn= $('confirmRestoreBtn');
+const restoreInfo  = $('restoreInfo');
+const toastEl      = $('toast');
 
-let restoreHistoryItem = null;
+let restoreTarget = null;
 
-// 이벤트 리스너
+// ── 토스트 ──
+let toastTmr = null;
+function toast(msg, type = 'info') {
+  clearTimeout(toastTmr);
+  toastEl.textContent = msg;
+  toastEl.className = 'toast show ' + type;
+  toastTmr = setTimeout(() => { toastEl.className = 'toast'; }, 2800);
+}
+
+// ── 업로드 이벤트 ──
 uploadArea.addEventListener('click', () => fileInput.click());
-uploadArea.addEventListener('dragover', handleDragOver);
-uploadArea.addEventListener('dragleave', handleDragLeave);
-uploadArea.addEventListener('drop', handleDrop);
-fileInput.addEventListener('change', handleFileSelect);
-removeFile.addEventListener('click', handleRemoveFile);
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', e => { e.preventDefault(); uploadArea.classList.remove('dragover'); });
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault(); uploadArea.classList.remove('dragover');
+  const f = e.dataTransfer.files;
+  if (f.length && f[0].type === 'application/pdf') loadPdf(f[0]);
+  else toast('PDF 파일만 업로드할 수 있습니다.', 'error');
+});
+fileInput.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f && f.type === 'application/pdf') loadPdf(f);
+  else if (f) toast('PDF 파일만 업로드할 수 있습니다.', 'error');
+});
+removeFileBtn.addEventListener('click', resetAll);
 
-selectStartBtn.addEventListener('click', () => {
-    selectionMode = 'start';
-    updateSelectionButtons();
+// 범위 입력 키보드
+startInput.addEventListener('keypress', e => { if (e.key === 'Enter') endInput.focus(); });
+endInput.addEventListener('keypress', e => { if (e.key === 'Enter') addRange(); });
+
+// 범위 추가 버튼
+addRangeBtn.addEventListener('click', addRange);
+clearSelBtn.addEventListener('click', clearSel);
+
+// 분할 / 결과
+splitBtn.addEventListener('click', runSplit);
+splitAgainBtn.addEventListener('click', () => {
+  resultSection.style.display = 'none';
+  ranges = []; clearSel(); updateRangesUI();
+});
+downloadAllBtn.addEventListener('click', () => {
+  results.forEach((_, i) => setTimeout(() => downloadResult(i), i * 300));
 });
 
-selectEndBtn.addEventListener('click', () => {
-    // 순서 검증: 시작 페이지가 먼저 선택되어야 함
-    if (!selectionStart) {
-        alert('먼저 "시작 페이지" 버튼을 클릭하고 시작할 페이지를 선택해주세요.');
-        return;
-    }
-    selectionMode = 'end';
-    updateSelectionButtons();
-});
+// 미리보기 내비
+prevBtn.addEventListener('click', () => navigate(currentPage - 1));
+nextBtn.addEventListener('click', () => navigate(currentPage + 1));
+goBtn.addEventListener('click', goToPage);
+pageJumpInput.addEventListener('keypress', e => { if (e.key === 'Enter') goToPage(); });
 
-clearSelectionBtn.addEventListener('click', () => {
-    selectionStart = null;
-    selectionEnd = null;
-    selectionMode = null;
-    updateSelectionButtons();
-    updateSelectionInfo();
-    updateThumbnails();
-});
+// 복구 모달
+closeRestoreBtn.addEventListener('click', closeRestore);
+cancelRestoreBtn.addEventListener('click', closeRestore);
+confirmRestoreBtn.addEventListener('click', doRestore);
+restoreModal.addEventListener('click', e => { if (e.target === restoreModal) closeRestore(); });
 
-addRangeBtn.addEventListener('click', handleAddRange);
-addRangeByInputBtn.addEventListener('click', handleAddRangeByInput);
-splitRangesBtn.addEventListener('click', handleSplitRanges);
-splitAgainBtn.addEventListener('click', handleSplitAgain);
-downloadAllBtn.addEventListener('click', handleDownloadAll);
-closeGuideBtn.addEventListener('click', () => {
-    document.querySelector('.usage-guide').style.display = 'none';
-});
-closeModalBtn.addEventListener('click', closeRestoreModal);
-cancelRestoreBtn.addEventListener('click', closeRestoreModal);
-confirmRestoreBtn.addEventListener('click', handleConfirmRestore);
-closeCompleteModalBtn.addEventListener('click', closeCompleteModal);
-confirmCompleteBtn.addEventListener('click', handleConfirmComplete);
-
-// 모달 외부 클릭 시 닫기
-restoreModal.addEventListener('click', (e) => {
-    if (e.target === restoreModal) {
-        closeRestoreModal();
-    }
-});
-
-completeModal.addEventListener('click', (e) => {
-    if (e.target === completeModal) {
-        closeCompleteModal();
-    }
-});
-
-prevPageBtn.addEventListener('click', () => {
-    if (currentPage > 1) {
-        currentPage--;
-        renderLargePreview(currentPage);
-        updatePageJumpInput();
-    }
-});
-
-nextPageBtn.addEventListener('click', () => {
-    if (currentPage < totalPages) {
-        currentPage++;
-        renderLargePreview(currentPage);
-        updatePageJumpInput();
-    }
-});
-
-goToPageBtn.addEventListener('click', () => {
-    goToPage();
-});
-
-pageJumpInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        goToPage();
-    }
-});
-
-// 입력 필드에서 Enter 키로 범위 추가
-if (startPageInput) {
-    startPageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            endPageInput.focus();
-        }
-    });
-}
-
-if (endPageInput) {
-    endPageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            handleAddRangeByInput();
-        }
-    });
-}
-
-// 페이지 이동 함수
-function goToPage() {
-    const pageNum = parseInt(pageJumpInput.value);
-    if (pageNum && pageNum >= 1 && pageNum <= totalPages) {
-        currentPage = pageNum;
-        renderLargePreview(pageNum);
-        updatePageJumpInput();
-        
-        // 해당 썸네일로 스크롤
-        const thumbnail = thumbnailList.querySelector(`[data-page="${pageNum}"]`);
-        if (thumbnail) {
-            thumbnail.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    } else {
-        alert(`페이지 번호는 1부터 ${totalPages}까지 입력할 수 있습니다.`);
-        updatePageJumpInput();
-    }
-}
-
-// 페이지 입력 필드 업데이트
-function updatePageJumpInput() {
-    if (pageJumpInput) {
-        pageJumpInput.value = currentPage;
-        pageJumpInput.max = totalPages;
-    }
-}
-
-// 드래그 앤 드롭 핸들러
-function handleDragOver(e) {
-    e.preventDefault();
-    uploadArea.classList.add('dragover');
-}
-
-function handleDragLeave(e) {
-    e.preventDefault();
-    uploadArea.classList.remove('dragover');
-}
-
-function handleDrop(e) {
-    e.preventDefault();
-    uploadArea.classList.remove('dragover');
-    const files = e.dataTransfer.files;
-    if (files.length > 0 && files[0].type === 'application/pdf') {
-        loadPdfFile(files[0]);
-    } else {
-        alert('PDF 파일만 업로드할 수 있습니다.');
-    }
-}
-
-// 파일 선택 핸들러
-function handleFileSelect(e) {
-    const file = e.target.files[0];
-    if (file && file.type === 'application/pdf') {
-        loadPdfFile(file);
-    } else {
-        alert('PDF 파일만 업로드할 수 있습니다.');
-    }
-}
-
-// PDF 파일 로드
-async function loadPdfFile(file) {
-    try {
-        const arrayBuffer = await file.arrayBuffer();
-        currentPdfBytes = new Uint8Array(arrayBuffer);
-        
-        // PDF-lib로 로드 (분할용)
-        currentPdfDoc = await PDFLib.PDFDocument.load(currentPdfBytes);
-        
-        // PDF.js로 로드 (미리보기용)
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-        pdfJsDoc = await loadingTask.promise;
-        totalPages = pdfJsDoc.numPages;
-
-        // UI 업데이트
-        fileName.textContent = file.name;
-        filePages.textContent = `총 ${totalPages}페이지`;
-        fileInfo.style.display = 'block';
-        previewSection.style.display = 'block';
-
-        // 기존 데이터 초기화
-        splitRanges = [];
-        selectionStart = null;
-        selectionEnd = null;
-        selectionMode = null;
-        currentPage = 1;
-        rangesList.style.display = 'none';
-        resultSection.style.display = 'none';
-        splitResults = [];
-
-        // 미리보기 렌더링
-        await renderThumbnails();
-        await renderLargePreview(1);
-        updatePageJumpInput();
-        updateSelectionButtons();
-        updateSelectionInfo();
-        
-        // 입력 필드 최대값 설정
-        if (startPageInput) {
-            startPageInput.max = totalPages;
-        }
-        if (endPageInput) {
-            endPageInput.max = totalPages;
-        }
-    } catch (error) {
-        console.error('PDF 로드 오류:', error);
-        alert('PDF 파일을 로드하는 중 오류가 발생했습니다.');
-    }
-}
-
-// 썸네일 렌더링
-async function renderThumbnails() {
-    thumbnailList.innerHTML = '';
-    
-    for (let i = 1; i <= totalPages; i++) {
-        const thumbnailItem = document.createElement('div');
-        thumbnailItem.className = 'thumbnail-item';
-        thumbnailItem.dataset.page = i;
-        
-        const canvas = document.createElement('canvas');
-        canvas.className = 'thumbnail-canvas';
-        
-        const pageLabel = document.createElement('div');
-        pageLabel.className = 'thumbnail-label';
-        pageLabel.textContent = `페이지 ${i}`;
-        
-        thumbnailItem.appendChild(canvas);
-        thumbnailItem.appendChild(pageLabel);
-        
-        // 썸네일 클릭 이벤트
-        thumbnailItem.addEventListener('click', () => {
-            currentPage = i;
-            renderLargePreview(i);
-            updatePageJumpInput();
-            handleThumbnailClick(i);
-        });
-        
-        thumbnailList.appendChild(thumbnailItem);
-        
-        // 썸네일 렌더링
-        await renderThumbnail(i, canvas);
-    }
-    
-    updateThumbnails();
-}
-
-// 썸네일 하나 렌더링
-async function renderThumbnail(pageNum, canvas) {
-    const page = await pdfJsDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 0.3 });
-    
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    
-    const context = canvas.getContext('2d');
-    await page.render({
-        canvasContext: context,
-        viewport: viewport
+// ── PDF 로드 ──
+async function loadPdf(file) {
+  try {
+    const ab = await file.arrayBuffer();
+    pdfDoc = await PDFLib.PDFDocument.load(new Uint8Array(ab));
+    pdfJs  = await pdfjsLib.getDocument({
+      data: ab,
+      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
+      cMapPacked: true,
     }).promise;
-}
 
-// 큰 미리보기 렌더링
-async function renderLargePreview(pageNum) {
-    if (!pdfJsDoc) return;
-    
-    const page = await pdfJsDoc.getPage(pageNum);
-    const container = previewCanvas.parentElement;
-    const containerWidth = container.clientWidth - 40;
-    const viewport = page.getViewport({ scale: 1 });
-    const scale = containerWidth / viewport.width;
-    const scaledViewport = page.getViewport({ scale: scale });
-    
-    previewCanvas.width = scaledViewport.width;
-    previewCanvas.height = scaledViewport.height;
-    
-    const context = previewCanvas.getContext('2d');
-    await page.render({
-        canvasContext: context,
-        viewport: scaledViewport
-    }).promise;
-    
-    currentPageInfo.textContent = `페이지 ${pageNum} / ${totalPages}`;
-    
-    // 썸네일 하이라이트 업데이트
-    updateThumbnails();
-}
-
-// 썸네일 클릭 처리
-function handleThumbnailClick(pageNum) {
-    if (selectionMode === 'start') {
-        selectionStart = pageNum;
-        if (selectionEnd && selectionStart > selectionEnd) {
-            selectionEnd = null;
-        }
-        selectionMode = null;
-        updateSelectionButtons();
-        updateSelectionInfo();
-        updateThumbnails();
-    } else if (selectionMode === 'end') {
-        // 순서 검증: 시작 페이지가 먼저 선택되어야 함
-        if (!selectionStart) {
-            alert('먼저 "시작 페이지" 버튼을 클릭하고 시작할 페이지를 선택해주세요.');
-            selectionMode = null;
-            updateSelectionButtons();
-            return;
-        }
-        if (pageNum >= selectionStart) {
-            selectionEnd = pageNum;
-        } else {
-            alert('끝 페이지는 시작 페이지보다 크거나 같아야 합니다.');
-            return;
-        }
-        selectionMode = null;
-        updateSelectionButtons();
-        updateSelectionInfo();
-        updateThumbnails();
-    }
-}
-
-// 선택 버튼 상태 업데이트
-function updateSelectionButtons() {
-    if (selectionMode === 'start') {
-        selectStartBtn.classList.add('active');
-        selectEndBtn.classList.remove('active');
-    } else if (selectionMode === 'end') {
-        selectStartBtn.classList.remove('active');
-        selectEndBtn.classList.add('active');
-    } else {
-        selectStartBtn.classList.remove('active');
-        selectEndBtn.classList.remove('active');
-    }
-}
-
-// 선택 정보 업데이트
-function updateSelectionInfo() {
-    if (selectionStart && selectionEnd) {
-        selectedRange.textContent = `${selectionStart}페이지 ~ ${selectionEnd}페이지 (${selectionEnd - selectionStart + 1}페이지)`;
-    } else if (selectionStart) {
-        selectedRange.textContent = `${selectionStart}페이지 (끝 페이지 선택 필요)`;
-    } else {
-        selectedRange.textContent = '없음';
-    }
-}
-
-// 썸네일 하이라이트 업데이트
-function updateThumbnails() {
-    const thumbnails = thumbnailList.querySelectorAll('.thumbnail-item');
-    thumbnails.forEach((thumb, index) => {
-        const pageNum = index + 1;
-        thumb.classList.remove('selected-start', 'selected-end', 'selected-range');
-        
-        if (selectionStart && selectionEnd) {
-            if (pageNum === selectionStart) {
-                thumb.classList.add('selected-start');
-            } else if (pageNum === selectionEnd) {
-                thumb.classList.add('selected-end');
-            } else if (pageNum > selectionStart && pageNum < selectionEnd) {
-                thumb.classList.add('selected-range');
-            }
-        } else if (selectionStart && pageNum === selectionStart) {
-            thumb.classList.add('selected-start');
-        }
-        
-        if (pageNum === currentPage) {
-            thumb.classList.add('current-page');
-        } else {
-            thumb.classList.remove('current-page');
-        }
-    });
-}
-
-// 범위 추가
-function handleAddRange() {
-    // 순서 검증
-    if (!selectionStart) {
-        alert('먼저 "시작 페이지" 버튼을 클릭하고 시작할 페이지를 선택해주세요.');
-        return;
-    }
-    if (!selectionEnd) {
-        alert('먼저 "마지막 페이지" 버튼을 클릭하고 끝낼 페이지를 선택해주세요.');
-        return;
-    }
-
-    // 중복 체크
-    const isDuplicate = splitRanges.some(range => 
-        range.start === selectionStart && range.end === selectionEnd
-    );
-
-    if (isDuplicate) {
-        alert('이미 추가된 범위입니다.');
-        return;
-    }
-
-    splitRanges.push({ start: selectionStart, end: selectionEnd });
-    updateRangesList();
-    rangesList.style.display = 'block';
-    splitRangesBtn.style.display = 'inline-block';
-    
-    // 선택 초기화
-    selectionStart = null;
-    selectionEnd = null;
-    updateSelectionInfo();
-    updateThumbnails();
-}
-
-// 입력 필드로 범위 추가
-function handleAddRangeByInput() {
-    const startPage = parseInt(startPageInput.value);
-    const endPage = parseInt(endPageInput.value);
-    
-    // 유효성 검사
-    if (!startPage || !endPage) {
-        alert('시작 페이지와 끝 페이지를 모두 입력해주세요.');
-        return;
-    }
-    
-    if (startPage < 1 || endPage < 1) {
-        alert('페이지 번호는 1 이상이어야 합니다.');
-        return;
-    }
-    
-    if (startPage > totalPages || endPage > totalPages) {
-        alert(`페이지 번호는 총 페이지 수(${totalPages}페이지)를 초과할 수 없습니다.`);
-        return;
-    }
-    
-    if (startPage > endPage) {
-        alert('시작 페이지는 끝 페이지보다 작거나 같아야 합니다.');
-        return;
-    }
-    
-    // 중복 체크
-    const isDuplicate = splitRanges.some(range => 
-        range.start === startPage && range.end === endPage
-    );
-    
-    if (isDuplicate) {
-        alert('이미 추가된 범위입니다.');
-        return;
-    }
-    
-    // 범위 추가
-    splitRanges.push({ start: startPage, end: endPage });
-    updateRangesList();
-    rangesList.style.display = 'block';
-    splitRangesBtn.style.display = 'inline-block';
-    
-    // 입력 필드 초기화
-    startPageInput.value = '';
-    endPageInput.value = '';
-    
-    // 선택 상태도 업데이트 (시각적 피드백)
-    selectionStart = startPage;
-    selectionEnd = endPage;
-    updateSelectionInfo();
-    updateThumbnails();
-    
-    // 해당 페이지로 스크롤
-    const thumbnail = thumbnailList.querySelector(`[data-page="${startPage}"]`);
-    if (thumbnail) {
-        thumbnail.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-}
-
-// 범위 목록 업데이트
-function updateRangesList() {
-    rangesListItems.innerHTML = '';
-    splitRanges.forEach((range, index) => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-            <span class="range-text">${range.start}페이지 ~ ${range.end}페이지 (${range.end - range.start + 1}페이지)</span>
-            <button class="remove-range" onclick="removeRange(${index})">제거</button>
-        `;
-        rangesListItems.appendChild(li);
-    });
-}
-
-// 범위 제거
-function removeRange(index) {
-    splitRanges.splice(index, 1);
-    if (splitRanges.length === 0) {
-        rangesList.style.display = 'none';
-        splitRangesBtn.style.display = 'none';
-    } else {
-        updateRangesList();
-    }
-}
-
-// 범위 분할 실행
-async function handleSplitRanges() {
-    // 순서 검증
-    if (splitRanges.length === 0) {
-        alert('먼저 "범위 추가" 버튼을 클릭하여 분할할 범위를 추가해주세요.');
-        return;
-    }
-
-    try {
-        await splitPdfByRanges(splitRanges);
-    } catch (error) {
-        console.error('분할 오류:', error);
-        alert('PDF 분할 중 오류가 발생했습니다.');
-    }
-}
-
-// 범위 배열로 PDF 분할
-async function splitPdfByRanges(ranges) {
-    splitResults = [];
-    
-    for (let i = 0; i < ranges.length; i++) {
-        const range = ranges[i];
-        const newPdf = await PDFLib.PDFDocument.create();
-        const pageIndices = [];
-        
-        for (let page = range.start; page <= range.end; page++) {
-            pageIndices.push(page - 1);
-        }
-
-        const copiedPages = await newPdf.copyPages(currentPdfDoc, pageIndices);
-        copiedPages.forEach(page => newPdf.addPage(page));
-
-        const pdfBytes = await newPdf.save();
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-
-        splitResults.push({
-            name: `범위_${range.start}-${range.end}.pdf`,
-            url: url,
-            pages: `${range.start}-${range.end}`,
-            blob: blob,
-            range: range
-        });
-    }
-
-    displayResults();
-    
-    // 완료 팝업 표시
-    showCompleteModal();
-}
-
-// 완료 모달 표시
-function showCompleteModal() {
-    completeFileCount.textContent = splitResults.length;
-    completeModal.style.display = 'flex';
-}
-
-// 완료 모달 닫기
-function closeCompleteModal() {
-    completeModal.style.display = 'none';
-}
-
-// 완료 확인 핸들러
-function handleConfirmComplete() {
-    closeCompleteModal();
-    // 결과 섹션으로 스크롤
-    resultSection.scrollIntoView({ behavior: 'smooth' });
-}
-
-// 결과 표시
-function displayResults() {
-    resultList.innerHTML = '';
-    
-    splitResults.forEach((result, index) => {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        div.innerHTML = `
-            <div class="result-item-info">
-                <div class="result-item-name">${result.name}</div>
-                <div class="result-item-pages">${result.pages}페이지</div>
-            </div>
-            <div class="result-item-actions">
-                <button class="btn-split-again" onclick="loadPdfFromResult(${index})">다시 분할</button>
-                <button class="download-btn" onclick="downloadPdf(${index})">다운로드</button>
-            </div>
-        `;
-        resultList.appendChild(div);
-    });
-
-    resultSection.style.display = 'block';
-    
-    // 히스토리에 추가
-    addToHistory();
-}
-
-// PDF 다운로드
-function downloadPdf(index) {
-    const result = splitResults[index];
-    const a = document.createElement('a');
-    a.href = result.url;
-    a.download = result.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-}
-
-// 전체 다운로드
-function handleDownloadAll() {
-    splitResults.forEach((result, index) => {
-        setTimeout(() => {
-            downloadPdf(index);
-        }, index * 300);
-    });
-}
-
-// 다시 분할하기
-function handleSplitAgain() {
-    resultSection.style.display = 'none';
-    splitRanges = [];
-    rangesList.style.display = 'none';
-    splitRangesBtn.style.display = 'none';
-    selectionStart = null;
-    selectionEnd = null;
-    selectionMode = null;
-    updateSelectionButtons();
-    updateSelectionInfo();
-    updateThumbnails();
-}
-
-// 결과에서 PDF 로드 (다시 분할하기 위해)
-async function loadPdfFromResult(index) {
-    const result = splitResults[index];
-    if (result && result.blob) {
-        const file = new File([result.blob], result.name, { type: 'application/pdf' });
-        await loadPdfFile(file);
-        resultSection.style.display = 'none';
-        previewSection.scrollIntoView({ behavior: 'smooth' });
-    }
-}
-
-// 히스토리에 추가
-function addToHistory() {
-    const historyItem = {
-        timestamp: new Date().toLocaleString('ko-KR'),
-        ranges: splitRanges,
-        results: splitResults.map(r => r.name)
-    };
-    
-    splitHistory.unshift(historyItem);
-    if (splitHistory.length > 10) {
-        splitHistory = splitHistory.slice(0, 10);
-    }
-    
-    updateHistory();
-}
-
-// 히스토리 업데이트
-function updateHistory() {
-    if (splitHistory.length === 0) {
-        historySection.style.display = 'none';
-        return;
-    }
-
-    historySection.style.display = 'block';
-    historyList.innerHTML = '';
-
-    splitHistory.forEach((item, index) => {
-        const div = document.createElement('div');
-        div.className = 'history-item';
-        div.innerHTML = `
-            <div class="history-item-name">${item.timestamp}</div>
-            <div class="history-item-info">
-                범위: ${item.ranges && item.ranges.length > 0 ? item.ranges.map(r => `${r.start}-${r.end}`).join(', ') : '없음'}
-            </div>
-            <div class="history-item-info">
-                결과: ${item.results.join(', ')}
-            </div>
-        `;
-        div.style.cursor = 'pointer';
-        div.addEventListener('click', () => {
-            showRestoreModal(item);
-        });
-        historyList.appendChild(div);
-    });
-}
-
-// 복구 모달 표시
-function showRestoreModal(historyItem) {
-    if (!historyItem.ranges || historyItem.ranges.length === 0) {
-        alert('이 히스토리 항목에는 복구할 범위 정보가 없습니다.');
-        return;
-    }
-    
-    restoreHistoryItem = historyItem;
-    
-        // 모달 정보 표시
-    modalInfo.innerHTML = `
-        <div class="modal-info-item">
-            <strong>시간:</strong> ${historyItem.timestamp}
-        </div>
-        <div class="modal-info-item">
-            <strong>범위:</strong> ${historyItem.ranges.map(r => `${r.start}-${r.end}페이지`).join(', ')} (총 ${historyItem.ranges.length}개)
-        </div>
-        <div class="modal-info-item">
-            <strong>결과 파일:</strong> ${historyItem.results.join(', ')}
-        </div>
-    `;
-    
-    restoreModal.style.display = 'flex';
-}
-
-// 복구 모달 닫기
-function closeRestoreModal() {
-    restoreModal.style.display = 'none';
-    restoreHistoryItem = null;
-}
-
-// 복구 확인
-async function handleConfirmRestore() {
-    if (!restoreHistoryItem || !restoreHistoryItem.ranges) {
-        alert('복구할 정보가 없습니다.');
-        return;
-    }
-    
-    // 현재 선택 초기화
-    selectionStart = null;
-    selectionEnd = null;
-    selectionMode = null;
-    
-    // 히스토리의 범위로 복구
-    splitRanges = restoreHistoryItem.ranges.map(range => ({ ...range }));
-    
-    // UI 업데이트
-    updateRangesList();
-    rangesList.style.display = 'block';
-    splitRangesBtn.style.display = 'inline-block';
-    updateSelectionButtons();
-    updateSelectionInfo();
-    updateThumbnails();
-    
-    // 모달 닫기
-    closeRestoreModal();
-    
-    // 자동으로 분할 실행
-    try {
-        await splitPdfByRanges(splitRanges);
-        // 결과 섹션으로 스크롤
-        resultSection.scrollIntoView({ behavior: 'smooth' });
-    } catch (error) {
-        console.error('분할 오류:', error);
-        alert('PDF 분할 중 오류가 발생했습니다.');
-    }
-}
-
-// 파일 제거 핸들러
-function handleRemoveFile() {
-    currentPdfDoc = null;
-    currentPdfBytes = null;
-    pdfJsDoc = null;
-    totalPages = 0;
-    splitRanges = [];
-    splitResults = [];
-    selectionStart = null;
-    selectionEnd = null;
-    selectionMode = null;
+    totalPages  = pdfJs.numPages;
+    origName    = file.name.replace(/\.pdf$/i, '');
     currentPage = 1;
+    ranges = []; results = [];
+    selStart = selEnd = null;
 
-    fileInfo.style.display = 'none';
-    previewSection.style.display = 'none';
-    resultSection.style.display = 'none';
-    rangesList.style.display = 'none';
-    fileInput.value = '';
-    thumbnailList.innerHTML = '';
+    fileNameEl.textContent  = file.name;
+    filePagesEl.textContent = totalPages + '페이지';
+    fileInfoBar.style.display  = 'flex';
+    editorSection.style.display= 'block';
+    resultSection.style.display= 'none';
+    startInput.max = endInput.max = totalPages;
+    startInput.value = endInput.value = '';
+
+    await renderThumbs();
+    await renderPreview(1);
+    updateSelUI();
+    updateRangesUI();
+    toast(file.name + ' 로드 완료', 'success');
+  } catch (err) {
+    console.error(err);
+    toast('PDF 로드에 실패했습니다.', 'error');
+  }
 }
 
-// 전역 함수로 내보내기
-window.removeRange = removeRange;
-window.downloadPdf = downloadPdf;
-window.loadPdfFromResult = loadPdfFromResult;
+// ── 썸네일 ──
+async function renderThumbs() {
+  thumbList.innerHTML = '';
+  const promises = [];
+  for (let i = 1; i <= totalPages; i++) {
+    const item  = document.createElement('div');
+    item.className   = 'thumb-item';
+    item.dataset.page = i;
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'thumb-canvas';
+
+    const btns = document.createElement('div');
+    btns.className = 'thumb-btns';
+
+    const bStart = document.createElement('button');
+    bStart.className = 'thumb-btn start'; bStart.textContent = '시작';
+    bStart.addEventListener('click', e => { e.stopPropagation(); setStart(i); });
+
+    const bEnd = document.createElement('button');
+    bEnd.className = 'thumb-btn end'; bEnd.textContent = '끝';
+    bEnd.addEventListener('click', e => { e.stopPropagation(); setEnd(i); });
+
+    btns.append(bStart, bEnd);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'thumb-label'; lbl.textContent = i;
+
+    item.append(canvas, btns, lbl);
+    item.addEventListener('click', () => navigate(i));
+    thumbList.appendChild(item);
+    promises.push(renderThumb(i, canvas));
+  }
+  await Promise.all(promises);
+  updateThumbHighlights();
+}
+
+async function renderThumb(n, canvas) {
+  try {
+    const page = await pdfJs.getPage(n);
+    const vp   = page.getViewport({ scale: 0.3 });
+    canvas.width = vp.width; canvas.height = vp.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+  } catch(e) { console.warn('thumb fail', n, e); }
+}
+
+// ── 큰 미리보기 ──
+async function renderPreview(n) {
+  if (!pdfJs) return;
+  const page = await pdfJs.getPage(n);
+  const wrap = previewCanvas.parentElement;
+  const w    = wrap.clientWidth - 32;
+  const vp   = page.getViewport({ scale: 1 });
+  const scale = Math.min(w / vp.width, 1.8);
+  const svp  = page.getViewport({ scale });
+  previewCanvas.width  = svp.width;
+  previewCanvas.height = svp.height;
+  await page.render({ canvasContext: previewCanvas.getContext('2d'), viewport: svp }).promise;
+  pageInfoTxt.textContent = n + ' / ' + totalPages;
+}
+
+function navigate(n) {
+  if (n < 1 || n > totalPages) return;
+  currentPage = n;
+  renderPreview(n);
+  pageJumpInput.value = n;
+  pageJumpInput.max   = totalPages;
+  updateThumbHighlights();
+  const t = thumbList.querySelector('[data-page="' + n + '"]');
+  if (t) t.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function goToPage() {
+  const n = parseInt(pageJumpInput.value);
+  if (n >= 1 && n <= totalPages) navigate(n);
+  else { toast('1 ~ ' + totalPages + ' 사이 페이지를 입력하세요.', 'error'); pageJumpInput.value = currentPage; }
+}
+
+// ── 시작 / 끝 선택 ──
+function setStart(n) {
+  selStart = n;
+  startInput.value = n;
+  if (selEnd !== null && selEnd < selStart) { selEnd = null; endInput.value = ''; }
+  navigate(n);
+  updateSelUI();
+  updateThumbHighlights();
+  // 시작+끝 모두 채워졌으면 자동 추가
+  if (selStart !== null && selEnd !== null) autoAddRange();
+}
+
+function setEnd(n) {
+  selEnd = n;
+  endInput.value = n;
+  if (selStart !== null && selStart > selEnd) {
+    [selStart, selEnd] = [selEnd, selStart];
+    startInput.value = selStart; endInput.value = selEnd;
+  }
+  navigate(n);
+  updateSelUI();
+  updateThumbHighlights();
+  // 시작+끝 모두 채워졌으면 자동 추가
+  if (selStart !== null && selEnd !== null) autoAddRange();
+}
+
+function clearSel() {
+  selStart = selEnd = null;
+  startInput.value = endInput.value = '';
+  updateSelUI(); updateThumbHighlights();
+}
+
+// ── 자동 범위 추가 (시작+끝 완성 시) ──
+function autoAddRange() {
+  const s = Math.min(selStart, selEnd);
+  const e = Math.max(selStart, selEnd);
+  if (ranges.some(r => r.start === s && r.end === e)) {
+    toast('이미 추가된 범위입니다.', 'info');
+    clearSel(); return;
+  }
+  ranges.push({ start: s, end: e });
+  updateRangesUI();
+  clearSel();
+  toast(s + '~' + e + '페이지 추가됨', 'success');
+}
+
+// ── 수동 범위 추가 (버튼 클릭) ──
+function addRange() {
+  let s = parseInt(startInput.value);
+  let e = parseInt(endInput.value);
+  if (!s && selStart !== null) s = selStart;
+  if (!e && selEnd   !== null) e = selEnd;
+  if (!s || !e) { toast('시작과 끝 페이지를 입력하세요.', 'error'); return; }
+  if (s < 1 || e < 1) { toast('페이지 번호는 1 이상이어야 합니다.', 'error'); return; }
+  if (s > totalPages || e > totalPages) { toast('총 ' + totalPages + '페이지를 초과합니다.', 'error'); return; }
+  if (s > e) [s, e] = [e, s];
+  if (ranges.some(r => r.start === s && r.end === e)) { toast('이미 추가된 범위입니다.', 'error'); return; }
+  ranges.push({ start: s, end: e });
+  updateRangesUI(); clearSel();
+  toast(s + '~' + e + '페이지 추가됨', 'success');
+}
+
+function removeRange(idx) {
+  ranges.splice(idx, 1); updateRangesUI(); toast('범위 제거됨', 'info');
+}
+
+// ── UI 업데이트 ──
+function updateSelUI() {
+  if (selStart !== null && selEnd !== null) {
+    selDot.className = 'sel-dot ready';
+    selText.textContent = selStart + '~' + selEnd + '페이지 선택됨';
+    clearSelBtn.style.display = 'inline-flex';
+  } else if (selStart !== null) {
+    selDot.className = 'sel-dot partial';
+    selText.textContent = '시작: ' + selStart + '페이지 — 끝 페이지를 선택하세요';
+    clearSelBtn.style.display = 'inline-flex';
+  } else if (selEnd !== null) {
+    selDot.className = 'sel-dot partial';
+    selText.textContent = '끝: ' + selEnd + '페이지 — 시작 페이지를 선택하세요';
+    clearSelBtn.style.display = 'inline-flex';
+  } else {
+    selDot.className = 'sel-dot';
+    selText.textContent = '썸네일 위에서 시작/끝 선택';
+    clearSelBtn.style.display = 'none';
+  }
+}
+
+function updateRangesUI() {
+  if (!ranges.length) {
+    rangesList.style.display = 'none';
+    rangeBar.style.display   = 'none';
+    return;
+  }
+  rangesList.style.display = 'block';
+  rangeBar.style.display   = 'flex';
+  rangeCountBadge.textContent = ranges.length;
+
+  chipsRow.innerHTML = '';
+  ranges.forEach((r, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.innerHTML = r.start + '–' + r.end + ' <span style="color:var(--text-faint);font-size:.75rem;">(' + (r.end - r.start + 1) + ')</span>';
+    const x = document.createElement('button');
+    x.className = 'chip-x'; x.textContent = '×';
+    x.addEventListener('click', () => removeRange(i));
+    chip.appendChild(x);
+    chipsRow.appendChild(chip);
+  });
+
+  rangeBar.innerHTML = '';
+  ranges.forEach(r => {
+    const tag = document.createElement('span');
+    tag.className = 'bar-tag';
+    tag.textContent = r.start + '–' + r.end;
+    tag.addEventListener('click', () => navigate(r.start));
+    rangeBar.appendChild(tag);
+  });
+
+  updateThumbHighlights();
+}
+
+function updateThumbHighlights() {
+  const thumbs = thumbList.querySelectorAll('.thumb-item');
+  const lo = (selStart !== null && selEnd !== null) ? Math.min(selStart, selEnd) : null;
+  const hi = (selStart !== null && selEnd !== null) ? Math.max(selStart, selEnd) : null;
+
+  thumbs.forEach(t => {
+    const n = parseInt(t.dataset.page);
+    t.classList.remove('is-current', 'is-start', 'is-end', 'is-between', 'is-in-range');
+    if (n === currentPage) t.classList.add('is-current');
+    if (lo !== null) {
+      if (n === lo)              t.classList.add('is-start');
+      else if (n === hi)         t.classList.add('is-end');
+      else if (n > lo && n < hi) t.classList.add('is-between');
+    } else {
+      if (selStart !== null && n === selStart) t.classList.add('is-start');
+      if (selEnd   !== null && n === selEnd)   t.classList.add('is-end');
+    }
+    for (const r of ranges) {
+      if (n >= r.start && n <= r.end) { t.classList.add('is-in-range'); break; }
+    }
+  });
+}
+
+// ── 분할 실행 ──
+async function runSplit() {
+  if (!ranges.length) { toast('분할할 범위를 먼저 추가하세요.', 'error'); return; }
+  try {
+    splitBtn.disabled = true; splitBtn.textContent = '처리 중…';
+    results = [];
+    for (const r of ranges) {
+      const newPdf = await PDFLib.PDFDocument.create();
+      const idxs   = Array.from({ length: r.end - r.start + 1 }, (_, i) => r.start - 1 + i);
+      const pages  = await newPdf.copyPages(pdfDoc, idxs);
+      pages.forEach(p => newPdf.addPage(p));
+      const bytes = await newPdf.save();
+      const blob  = new Blob([bytes], { type: 'application/pdf' });
+      results.push({
+        name:  origName + '_' + r.start + '-' + r.end,
+        url:   URL.createObjectURL(blob),
+        pages: r.start + '–' + r.end,
+        blob, range: r,
+      });
+    }
+    showResults();
+    addHistory();
+    toast(results.length + '개 파일 분할 완료!', 'success');
+    resultSection.scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    console.error(err); toast('분할 중 오류가 발생했습니다.', 'error');
+  } finally {
+    splitBtn.disabled = false; splitBtn.textContent = '분할 실행';
+  }
+}
+
+// ── 결과 표시 (이름 변경 포함) ──
+function showResults() {
+  resultList.innerHTML = '';
+  results.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'result-item-row';
+    row.innerHTML =
+      '<div class="name-edit-wrap">' +
+        '<input class="name-input" data-idx="' + i + '" value="' + escHtml(r.name) + '" spellcheck="false">' +
+        '<span class="name-suffix">.pdf</span>' +
+      '</div>' +
+      '<div class="result-item-sub" style="margin-left:8px;white-space:nowrap;">' + r.pages + '페이지</div>' +
+      '<div class="result-item-actions">' +
+        '<button class="btn btn-ghost btn-sm" data-action="resplit" data-idx="' + i + '">다시 분할</button>' +
+        '<button class="btn btn-primary btn-sm" data-action="dl" data-idx="' + i + '">다운로드</button>' +
+      '</div>';
+    // 이름 변경 → 저장
+    row.querySelector('.name-input').addEventListener('change', e => {
+      results[i].name = e.target.value.trim() || results[i].name;
+    });
+    resultList.appendChild(row);
+  });
+
+  resultList.addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const i = parseInt(btn.dataset.idx);
+    if (btn.dataset.action === 'dl')      downloadResult(i);
+    if (btn.dataset.action === 'resplit') resplitResult(i);
+  }, { once: true });
+
+  resultSection.style.display = 'block';
+}
+
+function downloadResult(i) {
+  const r = results[i];
+  const a = document.createElement('a');
+  a.href = r.url; a.download = r.name + '.pdf';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+async function resplitResult(i) {
+  const r = results[i];
+  if (r.blob) {
+    const f = new File([r.blob], r.name + '.pdf', { type: 'application/pdf' });
+    await loadPdf(f);
+    resultSection.style.display = 'none';
+    editorSection.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+// ── 히스토리 ──
+function addHistory() {
+  history.unshift({ ts: new Date().toLocaleString('ko-KR'), name: origName, ranges: ranges.map(r => ({...r})) });
+  if (history.length > 10) history.length = 10;
+  updateHistory();
+}
+
+function updateHistory() {
+  if (!history.length) { historySection.style.display = 'none'; return; }
+  historySection.style.display = 'block';
+  historyList.innerHTML = '';
+  history.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.innerHTML =
+      '<div class="history-item-top"><span class="history-item-name">' + escHtml(item.name) + '.pdf</span><span class="history-item-time">' + item.ts + '</span></div>' +
+      '<div class="history-item-chips">' + item.ranges.map(r => '<span class="h-chip">' + r.start + '–' + r.end + '</span>').join('') + '</div>';
+    div.addEventListener('click', () => openRestore(item));
+    historyList.appendChild(div);
+  });
+}
+
+// ── 복구 모달 ──
+function openRestore(item) {
+  if (!item.ranges.length) { toast('복구할 범위가 없습니다.', 'error'); return; }
+  restoreTarget = item;
+  restoreInfo.innerHTML =
+    '<div class="info-row"><strong>파일</strong>' + escHtml(item.name) + '.pdf</div>' +
+    '<div class="info-row"><strong>시간</strong>' + item.ts + '</div>' +
+    '<div class="info-row"><strong>범위</strong>' + item.ranges.map(r => r.start + '–' + r.end).join(', ') + '</div>';
+  restoreModal.style.display = 'flex';
+}
+
+function closeRestore() { restoreModal.style.display = 'none'; restoreTarget = null; }
+
+async function doRestore() {
+  if (!restoreTarget) return;
+  ranges = restoreTarget.ranges.map(r => ({...r}));
+  clearSel(); updateRangesUI(); closeRestore();
+  await runSplit();
+}
+
+// ── 전체 리셋 ──
+function resetAll() {
+  pdfDoc = pdfJs = null; totalPages = 0; currentPage = 1;
+  origName = ''; ranges = []; results = []; history = [];
+  selStart = selEnd = null;
+  fileInfoBar.style.display   = 'none';
+  editorSection.style.display = 'none';
+  resultSection.style.display = 'none';
+  historySection.style.display= 'none';
+  rangesList.style.display    = 'none';
+  rangeBar.style.display      = 'none';
+  fileInput.value = ''; thumbList.innerHTML = '';
+  startInput.value = endInput.value = '';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
