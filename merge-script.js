@@ -76,10 +76,23 @@ async function handleFiles(files) {
 
 async function addFile(file) {
   try {
-    const ab      = await file.arrayBuffer();
-    const uint8   = new Uint8Array(ab);
-    const pdfDoc  = await PDFLib.PDFDocument.load(uint8);
-    const pages   = pdfDoc.getPageCount();
+    const ab    = await file.arrayBuffer();
+    const uint8 = new Uint8Array(ab);
+
+    // 암호화 여부 확인
+    let isEncrypted = false;
+    try {
+      await PDFLib.PDFDocument.load(uint8);
+    } catch (e) {
+      if (e.message && e.message.includes('encrypted')) {
+        isEncrypted = true;
+      } else {
+        throw e;
+      }
+    }
+
+    const pdfDoc = await PDFLib.PDFDocument.load(uint8, { ignoreEncryption: true });
+    const pages  = pdfDoc.getPageCount();
 
     let pdfJsDoc = null;
     try {
@@ -96,11 +109,19 @@ async function addFile(file) {
 
     uploadedFiles.push({
       id: Date.now() + Math.random(),
-      file, name: file.name, pages, uint8, pdfJsDoc,
+      file, name: file.name, pages, uint8, pdfJsDoc, isEncrypted,
     });
+
+    if (isEncrypted) {
+      toast('"' + file.name + '" 은 암호화된 PDF입니다. 병합 결과가 정상적이지 않을 수 있어요.', 'info');
+    }
   } catch (err) {
     console.error(err);
-    toast('"' + file.name + '" 로드 실패', 'error');
+    if (err.message && err.message.includes('encrypted')) {
+      toast('"' + file.name + '" 은 비밀번호가 걸린 PDF라 열 수 없습니다.', 'error');
+    } else {
+      toast('"' + file.name + '" 로드 실패', 'error');
+    }
   }
 }
 

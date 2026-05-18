@@ -114,9 +114,25 @@ restoreModal.addEventListener('click', e => { if (e.target === restoreModal) clo
 // ── PDF 로드 ──
 async function loadPdf(file) {
   try {
-    const ab = await file.arrayBuffer();
-    pdfDoc = await PDFLib.PDFDocument.load(new Uint8Array(ab));
-    pdfJs  = await pdfjsLib.getDocument({
+    const ab    = await file.arrayBuffer();
+    const uint8 = new Uint8Array(ab);
+
+    // 암호화 여부 먼저 확인
+    let isEncrypted = false;
+    try {
+      await PDFLib.PDFDocument.load(uint8);
+    } catch (e) {
+      if (e.message && e.message.includes('encrypted')) {
+        isEncrypted = true;
+      } else {
+        throw e; // 암호화 외 다른 에러는 그대로 던짐
+      }
+    }
+
+    // 암호화된 파일은 ignoreEncryption으로 재시도
+    pdfDoc = await PDFLib.PDFDocument.load(uint8, { ignoreEncryption: true });
+
+    pdfJs = await pdfjsLib.getDocument({
       data: ab,
       cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
       cMapPacked: true,
@@ -140,10 +156,19 @@ async function loadPdf(file) {
     await renderPreview(1);
     updateSelUI();
     updateRangesUI();
-    toast(file.name + ' 로드 완료', 'success');
+
+    if (isEncrypted) {
+      toast('⚠️ 암호화된 PDF입니다. 분할 결과가 정상적이지 않을 수 있어요.', 'info');
+    } else {
+      toast(file.name + ' 로드 완료', 'success');
+    }
   } catch (err) {
     console.error(err);
-    toast('PDF 로드에 실패했습니다.', 'error');
+    if (err.message && err.message.includes('encrypted')) {
+      toast('비밀번호가 걸린 PDF는 열 수 없습니다.', 'error');
+    } else {
+      toast('PDF 로드에 실패했습니다.', 'error');
+    }
   }
 }
 
