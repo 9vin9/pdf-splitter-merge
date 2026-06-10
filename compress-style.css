@@ -1,0 +1,284 @@
+/* ════════════════════════════════
+   압축 페이지 전용 (compress-style.css)
+   shared.css 를 먼저 로드해야 함
+════════════════════════════════ */
+
+:root {
+  --orange:       #EA580C;
+  --orange-light: #FFF7ED;
+  --orange-mid:   #FDBA74;
+  --orange-dark:  #C2410C;
+}
+
+.compress-main {
+  flex: 1;
+  padding: 24px 32px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── 탭 활성 색상 ── */
+.tab-link.tab-compress.active {
+  color: var(--orange);
+  border-bottom-color: var(--orange);
+}
+
+/* ── 파일 크기 배지 ── */
+.file-size-badge {
+  font-size: 0.75rem;
+  color: var(--orange);
+  font-family: 'DM Mono', monospace;
+  background: var(--orange-light);
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--orange-mid);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── 설정 카드 ── */
+.settings-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+/* ── 품질 그리드 ── */
+.quality-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.quality-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+  text-align: center;
+}
+
+.quality-card:hover {
+  border-color: var(--orange-mid);
+  background: var(--orange-light);
+}
+
+.quality-card.selected {
+  border-color: var(--orange);
+  background: var(--orange-light);
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+}
+
+.quality-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.quality-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.quality-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.quality-card.selected .quality-name {
+  color: var(--orange);
+}
+
+/* ── 압축 버튼 ── */
+.btn-compress {
+  background: var(--orange);
+  color: white;
+}
+.btn-compress:hover:not(:disabled) {
+  background: var(--orange-dark);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+}
+
+.btn-compress-run {
+  padding: 8px 24px;
+  font-size: 0.9375rem;
+}
+
+/* ── 힌트 텍스트 ── */
+.compress-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 14px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.compress-hint svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--text-faint);
+}
+
+/* ── 진행 카드 ── */
+.progress-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.progress-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.progress-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+}
+
+.progress-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--orange);
+  border-radius: 999px;
+  width: 0%;
+  transition: width 0.2s ease;
+}
+
+/* ── 크기 비교 ── */
+.size-compare {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.size-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.size-box-before {
+  background: var(--bg);
+}
+
+.size-box-after {
+  background: var(--orange-light);
+  border-color: var(--orange-mid);
+}
+
+.size-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.size-value {
+  font-size: 1.375rem;
+  font-weight: 600;
+  font-family: 'DM Mono', monospace;
+  color: var(--text);
+}
+
+.size-box-after .size-value {
+  color: var(--orange);
+}
+
+.size-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.size-arrow svg {
+  width: 20px; height: 20px;
+  color: var(--text-faint);
+  stroke-width: 2;
+}
+
+/* ── 감소율 배지 ── */
+.reduction-badge {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  padding: 2px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.reduction-good {
+  background: #DCFCE7;
+  color: var(--green);
+}
+
+.reduction-bad {
+  background: var(--red-light);
+  color: var(--red);
+}
+
+/* ── 경고 박스 ── */
+.no-gain-warning {
+  background: var(--amber-light);
+  border: 1px solid #FDE68A;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.8125rem;
+  color: var(--amber);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+/* ── 결과 다운로드 행 ── */
+.result-download-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+
+/* ── 반응형 ── */
+@media (max-width: 900px) {
+  .compress-main { padding: 16px 16px 48px; }
+}
+@media (max-width: 600px) {
+  .quality-grid { grid-template-columns: 1fr; }
+  .size-compare { flex-direction: column; }
+  .size-arrow { flex-direction: row; }
+  .size-arrow svg { transform: rotate(90deg); }
+}

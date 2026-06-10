@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF 압축 — PDFTools</title>
+  <link rel="stylesheet" href="shared.css">
+  <link rel="stylesheet" href="compress-style.css">
+</head>
+<body>
+<div class="page-wrap">
+
+  <!-- ── 헤더 ── -->
+  <header class="site-header">
+    <a href="index.html" class="header-logo">
+      <span class="logo-mark">✂</span>
+      PDFTools
+    </a>
+    <nav class="header-tabs">
+      <a href="index.html" class="tab-link tab-split">
+        <span class="tab-icon">✂</span> 분할
+      </a>
+      <a href="merge.html" class="tab-link tab-merge">
+        <span class="tab-icon">⊕</span> 병합
+      </a>
+      <a href="compress.html" class="tab-link tab-compress active">
+        <span class="tab-icon">⬇</span> 압축
+      </a>
+    </nav>
+  </header>
+
+  <!-- ── 토스트 ── -->
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <main class="compress-main">
+
+    <!-- 업로드 -->
+    <section>
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="fileInput" accept=".pdf" hidden>
+        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p class="upload-text">PDF 파일을 드래그하거나 클릭하여 업로드</p>
+        <p class="upload-hint">PDF 파일 1개 · 이미지가 포함된 PDF에 효과적입니다</p>
+      </div>
+      <div class="file-info-bar" id="fileInfoBar" style="display:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--orange);flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span class="file-name" id="fileName"></span>
+        <span class="file-pages" id="filePages"></span>
+        <span class="file-size-badge" id="fileSizeBadge"></span>
+        <button class="btn btn-danger-ghost" id="removeFileBtn" title="파일 제거">×</button>
+      </div>
+    </section>
+
+    <!-- 설정 -->
+    <section class="settings-card" id="settingsSection" style="display:none;">
+      <span class="section-label" style="display:block;margin-bottom:16px;">압축 품질 선택</span>
+
+      <div class="quality-grid" id="qualityGrid">
+        <button class="quality-card" data-quality="max" aria-pressed="false">
+          <span class="quality-icon">⬇⬇</span>
+          <span class="quality-name">최대 압축</span>
+          <span class="quality-desc">파일 크기 최소화<br>화질 일부 감소</span>
+        </button>
+        <button class="quality-card selected" data-quality="balanced" aria-pressed="true">
+          <span class="quality-icon">⬇</span>
+          <span class="quality-name">균형</span>
+          <span class="quality-desc">크기와 화질의<br>적절한 균형</span>
+        </button>
+        <button class="quality-card" data-quality="high" aria-pressed="false">
+          <span class="quality-icon">✦</span>
+          <span class="quality-name">고품질</span>
+          <span class="quality-desc">선명한 화질<br>적당한 압축</span>
+        </button>
+      </div>
+
+      <div class="compress-hint">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        이미지 기반 PDF에 효과적입니다. 텍스트 전용 PDF는 효과가 제한될 수 있어요.
+      </div>
+
+      <div style="margin-top:20px;display:flex;justify-content:flex-end;">
+        <button class="btn btn-compress btn-compress-run" id="compressBtn">압축 실행</button>
+      </div>
+    </section>
+
+    <!-- 진행 -->
+    <section class="progress-card" id="progressSection" style="display:none;">
+      <div class="progress-top">
+        <span class="section-label">압축 중...</span>
+        <span class="progress-label" id="progressLabel">0 / 0 페이지</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </section>
+
+    <!-- 결과 -->
+    <section class="result-card" id="resultSection" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <span class="section-label">압축 결과</span>
+        <button class="btn btn-ghost btn-sm" id="compressAgainBtn">다시 압축</button>
+      </div>
+
+      <div class="size-compare">
+        <div class="size-box size-box-before">
+          <span class="size-label">원본</span>
+          <span class="size-value" id="sizeBeforeVal">–</span>
+        </div>
+        <div class="size-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          <span class="reduction-badge" id="reductionBadge">–%</span>
+        </div>
+        <div class="size-box size-box-after">
+          <span class="size-label">압축 후</span>
+          <span class="size-value" id="sizeAfterVal">–</span>
+        </div>
+      </div>
+
+      <div id="noGainWarning" class="no-gain-warning" style="display:none;">
+        이 PDF는 이미 최적화되어 있어 압축 효과가 거의 없습니다. 원본 파일 사용을 권장해요.
+      </div>
+
+      <div class="result-download-row">
+        <div class="name-edit-wrap" style="flex:1;min-width:0;">
+          <input class="name-input" id="resultNameInput" spellcheck="false" value="compressed">
+          <span class="name-suffix">.pdf</span>
+        </div>
+        <button class="btn btn-compress" id="downloadBtn">다운로드</button>
+      </div>
+      <div style="display:flex;justify-content:flex-end;padding-top:12px;border-top:1px solid var(--border);">
+        <span style="font-size:.75rem;color:var(--text-faint);">다운로드 전 파일명을 수정할 수 있어요</span>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="compress-script.js"></script>
+</body>
+</html>

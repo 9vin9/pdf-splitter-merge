@@ -124,6 +124,11 @@ body {
   border-bottom-color: var(--purple);
 }
 
+.tab-link.tab-compress.active {
+  color: #EA580C;
+  border-bottom-color: #EA580C;
+}
+
 .tab-icon {
   font-size: 1rem;
   line-height: 1;
