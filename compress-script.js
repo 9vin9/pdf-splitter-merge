@@ -1,6 +1,5 @@
 // ── PDF.js 설정 ──
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
 
 // ── 품질 프리셋 ──
 const PRESETS = {
@@ -10,7 +9,7 @@ const PRESETS = {
 };
 
 // ── 상태 ──
-let loadedFile   = null; // { file, name, pages, uint8, originalSize }
+let loadedFile     = null;
 let compressedBlob = null;
 let selectedQuality = 'balanced';
 
@@ -48,7 +47,6 @@ function toast(msg, type = 'info') {
   toastTmr = setTimeout(() => { toastEl.className = 'toast'; }, 2800);
 }
 
-// ── 파일 크기 포맷 ──
 function fmtSize(bytes) {
   if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   return Math.round(bytes / 1024) + ' KB';
@@ -71,7 +69,6 @@ fileInput.addEventListener('change', e => {
 
 removeFileBtn.addEventListener('click', resetAll);
 
-// ── 품질 카드 선택 ──
 qualityGrid.addEventListener('click', e => {
   const card = e.target.closest('.quality-card');
   if (!card) return;
@@ -85,13 +82,18 @@ qualityGrid.addEventListener('click', e => {
 compressBtn.addEventListener('click', handleCompress);
 compressAgainBtn.addEventListener('click', () => {
   compressedBlob = null;
-  resultSection.style.display  = 'none';
+  resultSection.style.display   = 'none';
   settingsSection.style.display = 'block';
 });
 downloadBtn.addEventListener('click', handleDownload);
 
 // ── 파일 처리 ──
+const LARGE_FILE_WARN = 200 * 1024 * 1024; // 200 MB 이상이면 경고만
+
 async function handleFile(file) {
+  if (file.size > LARGE_FILE_WARN) {
+    toast('파일이 큽니다. 처리 중 브라우저가 느려질 수 있어요.', 'info');
+  }
   try {
     const ab    = await file.arrayBuffer();
     const uint8 = new Uint8Array(ab);
@@ -110,8 +112,8 @@ async function handleFile(file) {
 
     loadedFile = { file, name: file.name, pages, uint8, originalSize: file.size };
 
-    fileNameEl.textContent  = file.name;
-    filePagesEl.textContent = pages + '페이지';
+    fileNameEl.textContent   = file.name;
+    filePagesEl.textContent  = pages + '페이지';
     fileSizeBadge.textContent = fmtSize(file.size);
     fileInfoBar.style.display     = 'flex';
     settingsSection.style.display = 'block';
@@ -124,7 +126,7 @@ async function handleFile(file) {
     if (err.message && err.message.includes('encrypted')) {
       toast('비밀번호가 걸린 PDF는 압축할 수 없습니다.', 'error');
     } else {
-      toast('파일 로드 실패: ' + err.message, 'error');
+      toast('파일 로드에 실패했습니다.', 'error');
     }
   }
 }
@@ -176,7 +178,9 @@ async function handleCompress() {
   }
 }
 
-// ── 페이지별 렌더 → JPEG → 새 PDF 조립 ──
+// ── 하이브리드 압축
+// 텍스트가 있는 페이지: pdf-lib copyPages로 구조 보존 (텍스트·링크·폰트 유지)
+// 텍스트 없는 페이지(스캔 이미지 등): JPEG 래스터화로 압축
 async function compressPDF(uint8, preset, totalPages) {
   const copy = new Uint8Array(uint8.length);
   copy.set(uint8);
@@ -187,36 +191,56 @@ async function compressPDF(uint8, preset, totalPages) {
     cMapPacked: true,
   }).promise;
 
+  const srcDoc = await PDFLib.PDFDocument.load(uint8);
   const newDoc = await PDFLib.PDFDocument.create();
+
+  copyMetadata(srcDoc, newDoc);
+
   const canvas = document.createElement('canvas');
   const ctx    = canvas.getContext('2d');
 
   for (let i = 1; i <= totalPages; i++) {
     updateProgress(i, totalPages);
 
-    const page     = await pdfJsDoc.getPage(i);
-    const viewport = page.getViewport({ scale: preset.scale });
+    const page        = await pdfJsDoc.getPage(i);
+    const textContent = await page.getTextContent();
+    const hasText     = textContent.items.length > 0;
 
-    canvas.width  = viewport.width;
-    canvas.height = viewport.height;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (hasText) {
+      // 텍스트 페이지: 구조 그대로 복사 (텍스트 검색·복사·링크·북마크 보존)
+      const [copied] = await newDoc.copyPages(srcDoc, [i - 1]);
+      newDoc.addPage(copied);
+    } else {
+      // 이미지 전용 페이지: JPEG 압축
+      const viewport = page.getViewport({ scale: preset.scale });
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
 
-    // 흰 배경 (투명 PDF 대비)
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    await page.render({ canvasContext: ctx, viewport }).promise;
-
-    const dataUrl   = canvas.toDataURL('image/jpeg', preset.quality);
-    const base64    = dataUrl.split(',')[1];
-    const jpegBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-
-    const jpegImage = await newDoc.embedJpg(jpegBytes);
-    const pdfPage   = newDoc.addPage([viewport.width, viewport.height]);
-    pdfPage.drawImage(jpegImage, { x: 0, y: 0, width: viewport.width, height: viewport.height });
+      const dataUrl    = canvas.toDataURL('image/jpeg', preset.quality);
+      const base64     = dataUrl.split(',')[1];
+      const jpegBytes  = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const jpegImage  = await newDoc.embedJpg(jpegBytes);
+      const pdfPage    = newDoc.addPage([viewport.width, viewport.height]);
+      pdfPage.drawImage(jpegImage, { x: 0, y: 0, width: viewport.width, height: viewport.height });
+    }
   }
 
-  return await newDoc.save();
+  return newDoc.save({ useObjectStreams: true });
+}
+
+// ── 메타데이터 복사 ──
+function copyMetadata(src, dst) {
+  const fields = ['Title', 'Author', 'Subject', 'Keywords', 'Creator', 'Producer'];
+  for (const f of fields) {
+    try {
+      const v = src['get' + f]?.();
+      if (v) dst['set' + f](v);
+    } catch (_) {}
+  }
 }
 
 function updateProgress(current, total) {

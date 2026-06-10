@@ -92,6 +92,8 @@ clearSelBtn.addEventListener('click', clearSel);
 // 분할 / 결과
 splitBtn.addEventListener('click', runSplit);
 splitAgainBtn.addEventListener('click', () => {
+  revokeResults();
+  results = [];
   resultSection.style.display = 'none';
   ranges = []; clearSel(); updateRangesUI();
 });
@@ -111,13 +113,26 @@ cancelRestoreBtn.addEventListener('click', closeRestore);
 confirmRestoreBtn.addEventListener('click', doRestore);
 restoreModal.addEventListener('click', e => { if (e.target === restoreModal) closeRestore(); });
 
+// 결과 목록 버튼 — 한 번만 등록 ({ once: true } 버그 수정)
+resultList.addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const i = parseInt(btn.dataset.idx);
+  if (btn.dataset.action === 'dl')      downloadResult(i);
+  if (btn.dataset.action === 'resplit') resplitResult(i);
+});
+
+const LARGE_FILE_WARN = 200 * 1024 * 1024; // 200 MB 이상이면 경고만
+
 // ── PDF 로드 ──
 async function loadPdf(file) {
+  if (file.size > LARGE_FILE_WARN) {
+    toast('파일이 큽니다. 처리 중 브라우저가 느려질 수 있어요.', 'info');
+  }
   try {
     const ab    = await file.arrayBuffer();
     const uint8 = new Uint8Array(ab);
 
-    // 암호화 여부 먼저 확인
     let isEncrypted = false;
     try {
       await PDFLib.PDFDocument.load(uint8);
@@ -125,11 +140,10 @@ async function loadPdf(file) {
       if (e.message && e.message.includes('encrypted')) {
         isEncrypted = true;
       } else {
-        throw e; // 암호화 외 다른 에러는 그대로 던짐
+        throw e;
       }
     }
 
-    // 암호화된 파일은 ignoreEncryption으로 재시도
     pdfDoc = await PDFLib.PDFDocument.load(uint8, { ignoreEncryption: true });
 
     pdfJs = await pdfjsLib.getDocument({
@@ -144,18 +158,23 @@ async function loadPdf(file) {
     ranges = []; results = [];
     selStart = selEnd = null;
 
-    fileNameEl.textContent  = file.name;
-    filePagesEl.textContent = totalPages + '페이지';
-    fileInfoBar.style.display  = 'flex';
-    editorSection.style.display= 'block';
-    resultSection.style.display= 'none';
+    fileNameEl.textContent   = file.name;
+    filePagesEl.textContent  = totalPages + '페이지';
+    fileInfoBar.style.display   = 'flex';
+    editorSection.style.display = 'block';
+    resultSection.style.display = 'none';
     startInput.max = endInput.max = totalPages;
     startInput.value = endInput.value = '';
-
-    await renderThumbs();
-    await renderPreview(1);
+    pageJumpInput.max   = totalPages;
+    pageJumpInput.value = 1;
     updateSelUI();
     updateRangesUI();
+
+    // 미리보기 먼저 → 사용자가 바로 볼 수 있음
+    await renderPreview(1);
+
+    // 썸네일 병렬 렌더링 (빠름)
+    await renderThumbs();
 
     if (isEncrypted) {
       toast('⚠️ 암호화된 PDF입니다. 분할 결과가 정상적이지 않을 수 있어요.', 'info');
@@ -175,10 +194,12 @@ async function loadPdf(file) {
 // ── 썸네일 ──
 async function renderThumbs() {
   thumbList.innerHTML = '';
-  const promises = [];
+  const entries = [];
+
+  // DOM 요소 먼저 생성 (빠름)
   for (let i = 1; i <= totalPages; i++) {
-    const item  = document.createElement('div');
-    item.className   = 'thumb-item';
+    const item = document.createElement('div');
+    item.className    = 'thumb-item';
     item.dataset.page = i;
 
     const canvas = document.createElement('canvas');
@@ -203,9 +224,12 @@ async function renderThumbs() {
     item.append(canvas, btns, lbl);
     item.addEventListener('click', () => navigate(i));
     thumbList.appendChild(item);
-    promises.push(renderThumb(i, canvas));
+    entries.push({ i, canvas });
   }
-  await Promise.all(promises);
+  updateThumbHighlights();
+
+  // 병렬 렌더링 (속도 우선)
+  await Promise.all(entries.map(({ i, canvas }) => renderThumb(i, canvas)));
   updateThumbHighlights();
 }
 
@@ -286,8 +310,8 @@ function clearSel() {
 function autoAddRange() {
   const s = Math.min(selStart, selEnd);
   const e = Math.max(selStart, selEnd);
-  if (ranges.some(r => r.start === s && r.end === e)) {
-    toast('이미 추가된 범위입니다.', 'info');
+  if (hasOverlap(s, e)) {
+    toast('다른 범위와 겹칩니다.', 'info');
     clearSel(); return;
   }
   ranges.push({ start: s, end: e });
@@ -306,10 +330,14 @@ function addRange() {
   if (s < 1 || e < 1) { toast('페이지 번호는 1 이상이어야 합니다.', 'error'); return; }
   if (s > totalPages || e > totalPages) { toast('총 ' + totalPages + '페이지를 초과합니다.', 'error'); return; }
   if (s > e) [s, e] = [e, s];
-  if (ranges.some(r => r.start === s && r.end === e)) { toast('이미 추가된 범위입니다.', 'error'); return; }
+  if (hasOverlap(s, e)) { toast('다른 범위와 겹칩니다.', 'error'); return; }
   ranges.push({ start: s, end: e });
   updateRangesUI(); clearSel();
   toast(s + '~' + e + '페이지 추가됨', 'success');
+}
+
+function hasOverlap(s, e) {
+  return ranges.some(r => s <= r.end && e >= r.start);
 }
 
 function removeRange(idx) {
@@ -394,11 +422,17 @@ function updateThumbHighlights() {
   });
 }
 
+// ── Object URL 해제 ──
+function revokeResults() {
+  results.forEach(r => { if (r.url) URL.revokeObjectURL(r.url); });
+}
+
 // ── 분할 실행 ──
 async function runSplit() {
   if (!ranges.length) { toast('분할할 범위를 먼저 추가하세요.', 'error'); return; }
   try {
     splitBtn.disabled = true; splitBtn.textContent = '처리 중…';
+    revokeResults();
     results = [];
     for (const r of ranges) {
       const newPdf = await PDFLib.PDFDocument.create();
@@ -447,14 +481,6 @@ function showResults() {
     });
     resultList.appendChild(row);
   });
-
-  resultList.addEventListener('click', e => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    const i = parseInt(btn.dataset.idx);
-    if (btn.dataset.action === 'dl')      downloadResult(i);
-    if (btn.dataset.action === 'resplit') resplitResult(i);
-  }, { once: true });
 
   resultSection.style.display = 'block';
 }
@@ -520,13 +546,13 @@ async function doRestore() {
 
 // ── 전체 리셋 ──
 function resetAll() {
+  revokeResults();
   pdfDoc = pdfJs = null; totalPages = 0; currentPage = 1;
-  origName = ''; ranges = []; results = []; history = [];
+  origName = ''; ranges = []; results = [];
   selStart = selEnd = null;
   fileInfoBar.style.display   = 'none';
   editorSection.style.display = 'none';
   resultSection.style.display = 'none';
-  historySection.style.display= 'none';
   rangesList.style.display    = 'none';
   rangeBar.style.display      = 'none';
   fileInput.value = ''; thumbList.innerHTML = '';

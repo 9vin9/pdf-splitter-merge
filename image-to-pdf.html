@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>이미지→PDF — PDFTools</title>
+  <link rel="stylesheet" href="shared.css">
+  <link rel="stylesheet" href="image-to-pdf-style.css">
+</head>
+<body>
+<div class="page-wrap">
+
+  <header class="site-header">
+    <a href="index.html" class="header-logo">
+      <span class="logo-mark">✂</span>
+      PDFTools
+    </a>
+    <nav class="header-tabs">
+      <a href="index.html" class="tab-link tab-split">
+        <span class="tab-icon">✂</span> 분할
+      </a>
+      <a href="merge.html" class="tab-link tab-merge">
+        <span class="tab-icon">⊕</span> 병합
+      </a>
+      <a href="compress.html" class="tab-link tab-compress">
+        <span class="tab-icon">⬇</span> 압축
+      </a>
+      <a href="image-to-pdf.html" class="tab-link tab-img active">
+        <span class="tab-icon">+</span> 이미지→PDF
+      </a>
+    </nav>
+  </header>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <main class="img-main">
+
+    <!-- 업로드 -->
+    <section>
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="fileInput"
+          accept=".png,.jpg,.jpeg,.webp,.gif,.bmp,image/*" multiple hidden>
+        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="1.5"/>
+          <circle cx="8.5" cy="8.5" r="1.5" stroke-width="1.5"/>
+          <path d="M21 15l-5-5L5 21" stroke-width="1.5"/>
+        </svg>
+        <p class="upload-text">이미지를 드래그하거나 클릭하여 업로드</p>
+        <p class="upload-hint">PNG · JPG · WebP · GIF · BMP · 여러 파일 동시 업로드 · 드래그로 순서 변경</p>
+      </div>
+    </section>
+
+    <!-- 페이지 크기 설정 -->
+    <section class="settings-card" id="settingsSection" style="display:none;">
+      <span class="section-label" style="display:block;margin-bottom:14px;">페이지 크기</span>
+      <div class="size-grid" id="sizeGrid">
+        <button class="size-card selected" data-size="original" aria-pressed="true">
+          <span class="size-name">원본 크기</span>
+          <span class="size-desc">이미지 해상도 그대로</span>
+        </button>
+        <button class="size-card" data-size="a4" aria-pressed="false">
+          <span class="size-name">A4</span>
+          <span class="size-desc">210 × 297 mm</span>
+        </button>
+        <button class="size-card" data-size="letter" aria-pressed="false">
+          <span class="size-name">Letter</span>
+          <span class="size-desc">216 × 279 mm</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 파일 목록 -->
+    <section class="files-card" id="filesSection" style="display:none;">
+      <div class="files-card-head">
+        <div>
+          <span class="section-label">업로드된 이미지</span>
+          <span class="files-card-hint" style="margin-left:8px;">드래그로 순서 변경</span>
+        </div>
+        <div class="files-card-actions">
+          <button class="btn btn-ghost btn-sm" id="clearAllBtn">전체 삭제</button>
+          <button class="btn btn-success btn-sm" id="convertBtn">PDF 변환</button>
+        </div>
+      </div>
+      <div id="filesList"></div>
+    </section>
+
+    <!-- 결과 -->
+    <section class="result-card" id="resultSection" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span class="section-label">변환 결과</span>
+        <button class="btn btn-ghost btn-sm" id="convertAgainBtn">다시 변환</button>
+      </div>
+      <div class="result-item-row">
+        <div style="flex:1;min-width:0;">
+          <div class="name-edit-wrap" style="margin-bottom:4px;">
+            <input class="name-input" id="resultNameInput" spellcheck="false" value="images">
+            <span class="name-suffix">.pdf</span>
+          </div>
+          <div class="result-item-sub" id="resultInfo">총 0페이지</div>
+        </div>
+        <button class="btn btn-primary" id="downloadBtn">다운로드</button>
+      </div>
+      <div style="display:flex;justify-content:flex-end;padding-top:12px;border-top:1px solid var(--border);">
+        <span style="font-size:.75rem;color:var(--text-faint);">다운로드 전 파일명을 수정할 수 있어요</span>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"
+        integrity="sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI"
+        crossorigin="anonymous"></script>
+<script src="image-to-pdf-script.js"></script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+/* ════════════════════════════════
+   이미지→PDF 페이지 전용
+   shared.css 를 먼저 로드해야 함
+════════════════════════════════ */
+
+.img-main {
+  flex: 1;
+  padding: 24px 32px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 820px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── 페이지 크기 설정 ── */
+.settings-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.size-grid {
+  display: flex;
+  gap: 10px;
+}
+
+.size-card {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.size-card:hover {
+  border-color: var(--green);
+  background: var(--green-light);
+}
+
+.size-card.selected {
+  border-color: var(--green);
+  background: var(--green-light);
+}
+
+.size-name {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+  transition: color 0.15s;
+}
+
+.size-card.selected .size-name { color: var(--green); }
+
+.size-desc {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ── 파일 목록 ── */
+.files-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+
+.files-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+
+.files-card-hint {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+.files-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── 파일 아이템 ── */
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  transition: border-color 0.15s, opacity 0.15s, background 0.15s;
+  user-select: none;
+}
+
+.file-item:last-child { margin-bottom: 0; }
+.file-item.dragging   { opacity: 0.4; }
+.file-item.drag-over  { border-color: var(--green); background: var(--green-light); }
+
+.drag-handle {
+  width: 18px; height: 18px;
+  color: var(--text-faint);
+  cursor: grab;
+  flex-shrink: 0;
+}
+.drag-handle svg { width: 100%; height: 100%; }
+.drag-handle:active { cursor: grabbing; }
+
+.file-thumb {
+  width: 48px; height: 48px;
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--border);
+}
+
+.file-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-item-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-item-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+  margin-top: 2px;
+}
+
+.order-badge {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+}
+
+/* ════════════════════════════════
+   반응형
+════════════════════════════════ */
+@media (max-width: 600px) {
+  .img-main   { padding: 16px 16px 48px; }
+  .size-grid  { flex-wrap: wrap; }
+  .size-card  { min-width: calc(50% - 5px); }
+}

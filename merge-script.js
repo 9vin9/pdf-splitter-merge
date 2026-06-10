@@ -1,6 +1,5 @@
 // ── PDF.js 설정 ──
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
 
 // ── 상태 ──
 let uploadedFiles = []; // { id, file, name, pages, uint8, pdfJsDoc }
@@ -66,6 +65,8 @@ downloadBtn.addEventListener('click', handleDownload);
 closePreviewBtn.addEventListener('click', () => { previewModal.style.display = 'none'; });
 previewModal.addEventListener('click', e => { if (e.target === previewModal) previewModal.style.display = 'none'; });
 
+const LARGE_FILE_WARN = 200 * 1024 * 1024; // 200 MB 이상이면 경고만
+
 // ── 파일 처리 ──
 async function handleFiles(files) {
   for (const f of files) await addFile(f);
@@ -75,6 +76,9 @@ async function handleFiles(files) {
 }
 
 async function addFile(file) {
+  if (file.size > LARGE_FILE_WARN) {
+    toast('"' + file.name + '" 파일이 큽니다. 처리 중 브라우저가 느려질 수 있어요.', 'info');
+  }
   try {
     const ab    = await file.arrayBuffer();
     const uint8 = new Uint8Array(ab);

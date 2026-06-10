@@ -26,6 +26,9 @@
       <a href="compress.html" class="tab-link tab-compress active">
         <span class="tab-icon">⬇</span> 압축
       </a>
+      <a href="image-to-pdf.html" class="tab-link tab-img">
+        <span class="tab-icon">+</span> 이미지→PDF
+      </a>
     </nav>
   </header>
 
@@ -78,7 +81,7 @@
 
       <div class="compress-hint">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        이미지 기반 PDF에 효과적입니다. 텍스트 전용 PDF는 효과가 제한될 수 있어요.
+        텍스트 페이지는 구조(텍스트 검색·복사·링크·북마크)를 그대로 보존하고, 이미지 전용 페이지만 JPEG 압축합니다.
       </div>
 
       <div style="margin-top:20px;display:flex;justify-content:flex-end;">
@@ -138,8 +141,8 @@
   </main>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" integrity="sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI" crossorigin="anonymous"></script>
+<script src="pdf.min.js"></script>
 <script src="compress-script.js"></script>
 </body>
 </html>
