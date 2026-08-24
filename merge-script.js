@@ -2,7 +2,7 @@
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
 
 // ── 상태 ──
-let uploadedFiles = []; // { id, file, name, pages, uint8, pdfJsDoc }
+let uploadedFiles = []; // { id, file, type, name, pages, uint8, pdfJsDoc, objUrl, width, height }
 let mergedBlob    = null;
 let draggedEl     = null;
 
@@ -40,18 +40,19 @@ uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.cl
 uploadArea.addEventListener('dragleave', e => { e.preventDefault(); uploadArea.classList.remove('dragover'); });
 uploadArea.addEventListener('drop', e => {
   e.preventDefault(); uploadArea.classList.remove('dragover');
-  const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+  const files = Array.from(e.dataTransfer.files).filter(isSupportedFile);
   if (files.length) handleFiles(files);
-  else toast('PDF 파일만 업로드할 수 있습니다.', 'error');
+  else toast('PDF 또는 이미지 파일만 업로드할 수 있습니다.', 'error');
 });
 fileInput.addEventListener('change', e => {
-  const files = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
+  const files = Array.from(e.target.files).filter(isSupportedFile);
   if (files.length) handleFiles(files);
   fileInput.value = '';
 });
 
 clearAllBtn.addEventListener('click', () => {
   if (!uploadedFiles.length) return;
+  uploadedFiles.forEach(revokeFileUrl);
   uploadedFiles = []; mergedBlob = null;
   filesSection.style.display  = 'none';
   resultSection.style.display = 'none';
@@ -67,6 +68,18 @@ previewModal.addEventListener('click', e => { if (e.target === previewModal) pre
 
 const LARGE_FILE_WARN = 200 * 1024 * 1024; // 200 MB 이상이면 경고만
 
+function isSupportedFile(file) {
+  return isPdfFile(file) || isImageFile(file);
+}
+
+function isPdfFile(file) {
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+}
+
+function isImageFile(file) {
+  return file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
+}
+
 // ── 파일 처리 ──
 async function handleFiles(files) {
   for (const f of files) await addFile(f);
@@ -79,6 +92,11 @@ async function addFile(file) {
   if (file.size > LARGE_FILE_WARN) {
     toast('"' + file.name + '" 파일이 큽니다. 처리 중 브라우저가 느려질 수 있어요.', 'info');
   }
+  if (isImageFile(file)) {
+    await addImageFile(file);
+    return;
+  }
+
   try {
     const ab    = await file.arrayBuffer();
     const uint8 = new Uint8Array(ab);
@@ -113,7 +131,7 @@ async function addFile(file) {
 
     uploadedFiles.push({
       id: Date.now() + Math.random(),
-      file, name: file.name, pages, uint8, pdfJsDoc, isEncrypted,
+      file, type: 'pdf', name: file.name, pages, uint8, pdfJsDoc, isEncrypted,
     });
 
     if (isEncrypted) {
@@ -129,9 +147,35 @@ async function addFile(file) {
   }
 }
 
+function addImageFile(file) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      uploadedFiles.push({
+        id: Date.now() + Math.random(),
+        file,
+        type: 'image',
+        name: file.name,
+        pages: 1,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        objUrl: url,
+      });
+      resolve();
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      toast('"' + file.name + '" 이미지 로드 실패', 'error');
+      resolve();
+    };
+    img.src = url;
+  });
+}
+
 // ── 기본 파일명: 원본 파일명들을 + 로 연결 ──
 function updateDefaultName() {
-  const names = uploadedFiles.map(f => f.name.replace(/\.pdf$/i, ''));
+  const names = uploadedFiles.map(f => stripExtension(f.name));
   resultNameInput.value = names.join(' + ');
 }
 
@@ -164,7 +208,7 @@ function updateFilesList() {
     info.className = 'file-item-info';
     info.innerHTML =
       '<div class="file-item-name">' + escHtml(fd.name) + '</div>' +
-      '<div class="file-item-meta">' + fd.pages + '페이지</div>';
+      '<div class="file-item-meta">' + getFileMeta(fd) + '</div>';
 
     // 순서 배지
     const badge = document.createElement('div');
@@ -212,6 +256,10 @@ function updateFilesList() {
 }
 
 async function renderThumb(fd, canvas) {
+  if (fd.type === 'image') {
+    renderImageToCanvas(fd, canvas, 52, 66);
+    return;
+  }
   if (!fd.pdfJsDoc) return;
   try {
     const page = await fd.pdfJsDoc.getPage(1);
@@ -222,6 +270,8 @@ async function renderThumb(fd, canvas) {
 }
 
 function removeFile(id) {
+  const removed = uploadedFiles.find(f => f.id.toString() === id.toString());
+  if (removed) revokeFileUrl(removed);
   uploadedFiles = uploadedFiles.filter(f => f.id.toString() !== id.toString());
   if (!uploadedFiles.length) {
     filesSection.style.display = 'none';
@@ -234,10 +284,20 @@ function removeFile(id) {
 // ── 미리보기 ──
 async function showPreview(id) {
   const fd = uploadedFiles.find(f => f.id.toString() === id.toString());
-  if (!fd || !fd.pdfJsDoc) { toast('미리보기를 불러올 수 없습니다.', 'error'); return; }
+  if (!fd) { toast('미리보기를 불러올 수 없습니다.', 'error'); return; }
 
   previewModalTitle.textContent = fd.name;
   previewModal.style.display = 'flex';
+
+  if (fd.type === 'image') {
+    const container = previewModalCanvas.parentElement;
+    const maxW = Math.max(container.clientWidth - 32, 400);
+    const scale = Math.min(maxW / fd.width, 2);
+    renderImageToCanvas(fd, previewModalCanvas, fd.width * scale, fd.height * scale);
+    return;
+  }
+
+  if (!fd.pdfJsDoc) { toast('미리보기를 불러올 수 없습니다.', 'error'); return; }
 
   try {
     const page = await fd.pdfJsDoc.getPage(1);
@@ -272,19 +332,24 @@ async function handleMerge() {
     let total = 0;
 
     for (const fd of uploadedFiles) {
-      const copy = new Uint8Array(fd.uint8.length);
-      copy.set(fd.uint8);
-      const src   = await PDFLib.PDFDocument.load(copy);
-      const pages = await merged.copyPages(src, Array.from({ length: src.getPageCount() }, (_, i) => i));
-      pages.forEach(p => merged.addPage(p));
-      total += src.getPageCount();
+      if (fd.type === 'image') {
+        await addImagePage(merged, fd);
+        total += 1;
+      } else {
+        const copy = new Uint8Array(fd.uint8.length);
+        copy.set(fd.uint8);
+        const src   = await PDFLib.PDFDocument.load(copy);
+        const pages = await merged.copyPages(src, Array.from({ length: src.getPageCount() }, (_, i) => i));
+        pages.forEach(p => merged.addPage(p));
+        total += src.getPageCount();
+      }
     }
 
     const bytes  = await merged.save();
     mergedBlob   = new Blob([bytes], { type: 'application/pdf' });
 
     // 기본 파일명: 원본 파일명들 + 로 연결
-    const names = uploadedFiles.map(f => f.name.replace(/\.pdf$/i, ''));
+    const names = uploadedFiles.map(f => stripExtension(f.name));
     resultNameInput.value = names.join(' + ');
     resultPages.textContent = '총 ' + total + '페이지';
 
@@ -308,6 +373,80 @@ function handleDownload() {
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+async function addImagePage(doc, fd) {
+  const pdfImage = await embedImage(doc, fd);
+  const page = doc.addPage([pdfImage.width, pdfImage.height]);
+  page.drawImage(pdfImage, { x: 0, y: 0, width: pdfImage.width, height: pdfImage.height });
+}
+
+async function embedImage(doc, fd) {
+  const type = fd.file.type.toLowerCase();
+
+  if (type === 'image/png' || /\.png$/i.test(fd.name)) {
+    const bytes = new Uint8Array(await fd.file.arrayBuffer());
+    return doc.embedPng(bytes);
+  }
+
+  if (type === 'image/jpeg' || /\.jpe?g$/i.test(fd.name)) {
+    const bytes = new Uint8Array(await fd.file.arrayBuffer());
+    return doc.embedJpg(bytes);
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
+      try { resolve(await doc.embedJpg(bytes)); }
+      catch (e) { reject(e); }
+    };
+    img.onerror = reject;
+    img.src = fd.objUrl;
+  });
+}
+
+function renderImageToCanvas(fd, canvas, maxW, maxH) {
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(maxW / fd.width, maxH / fd.height);
+    const drawW = Math.max(fd.width * scale, 1);
+    const drawH = Math.max(fd.height * scale, 1);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = drawW * dpr;
+    canvas.height = drawH * dpr;
+    canvas.style.width = drawW + 'px';
+    canvas.style.height = drawH + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, drawW, drawH);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, drawW, drawH);
+    ctx.drawImage(img, 0, 0, drawW, drawH);
+  };
+  img.src = fd.objUrl;
+}
+
+function getFileMeta(fd) {
+  if (fd.type === 'image') return fd.width + ' × ' + fd.height + 'px · 1페이지';
+  return fd.pages + '페이지';
+}
+
+function stripExtension(name) {
+  return name.replace(/\.(pdf|png|jpe?g|webp|gif|bmp)$/i, '');
+}
+
+function revokeFileUrl(fd) {
+  if (fd && fd.objUrl) URL.revokeObjectURL(fd.objUrl);
 }
 
 function escHtml(s) {
